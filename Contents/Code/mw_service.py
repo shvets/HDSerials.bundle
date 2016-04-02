@@ -42,8 +42,8 @@ class MwService(HttpService):
             'headers': {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Referer': url,
-                'Content-Data': self.get_content_data(response),
-                'Cookie': self.get_cookies(response)
+                'Content-Data': self.get_content_data(response)
+                # 'Cookie': self.get_cookies(response)
             },
         }
 
@@ -55,48 +55,9 @@ class MwService(HttpService):
         if data:
             return base64.b64encode(data.group(1))
 
-    def get_cookies(self, response):
-        return None
+    # def get_cookies(self, response):
+    #     return None
 
-    def get_serial_info(self, url):
-        ret = {}
-
-        response = self.http_request(url)
-        document = self.to_document(response.read())
-
-        ret['seasons'] = {}
-        ret['episodes'] = {}
-        for item in document.xpath('//select[@id="season"]/option'):
-            value = item.get('value')
-            ret['seasons'][value] = unicode(item.text_content())
-            if item.get('selected'):
-                ret['current_season'] = value
-
-        for item in document.xpath('//select[@id="episode"]/option'):
-            value = item.get('value')
-            ret['episodes'][value] = unicode(item.text_content())
-            if item.get('selected'):
-                ret['current_episode'] = value
-
-        return ret
-
-    # def get_url(self, headers, data, url=None, season=None, episode=None):
-    #     response = self.http_request(method='POST', url='http://moonwalk.cc/sessions/create_session',
-    #                                  headers=headers, data=data)
-    #
-    #     data = json.loads(response.read())
-    #
-    #     manifest_url = data['manifest_m3u8']
-    #
-    #     response2 = self.http_request(manifest_url)
-    #
-    #     data2 = response2.read()
-    #
-    #     # print(data2)
-    #
-    #     url2 = [line for line in data2.splitlines() if line].pop()
-    #
-    #     return url2
 
     def get_urls(self, headers, data):
         response = self.http_request(method='POST', url='http://moonwalk.cc/sessions/create_session',

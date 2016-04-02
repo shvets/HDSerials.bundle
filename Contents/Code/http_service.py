@@ -49,6 +49,7 @@ class HttpService():
         path = '/'.join(path)
 
         lines = self.http_request(url).read().splitlines()
+
         new_lines = []
 
         for line in lines:

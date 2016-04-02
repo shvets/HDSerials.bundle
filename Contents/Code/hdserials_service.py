@@ -12,8 +12,7 @@ class HDSerialsService(MwService):
     def get_menu(self):
         list = []
 
-        response = self.http_request(self.URL)
-        document = self.to_document(response.read())
+        document = self.fetch_document(self.URL)
 
         links = document.xpath('//div[@id="gkDropMain"]/ul/li/a')
 
@@ -28,8 +27,7 @@ class HDSerialsService(MwService):
     def get_new_series(self):
         list = []
 
-        response = self.http_request(self.URL)
-        document = self.to_document(response.read())
+        document = self.fetch_document(self.URL)
 
         links = document.xpath('//div[@id="gkHeaderheader1"]//div[@class="custom"]/div/a')
 
@@ -44,8 +42,7 @@ class HDSerialsService(MwService):
     def get_media_data(self, path):
         data = {}
 
-        response = self.http_request(path)
-        document = self.to_document(response.read())
+        document = self.fetch_document(path)
 
         frame_block = document.xpath('//div[@id="k2Container"]')[0]
 
@@ -208,9 +205,33 @@ class HDSerialsService(MwService):
 
         #if ret['session']['values']['content_type'] == 'serial':
         if session_data['data']['content_type'] == 'serial':
-            ret = dict(self.get_serial_info(url), **ret)
+            # response = self.http_request(url)
+            # document = self.to_document(response.read())
+            document = self.fetch_document(url)
+
+            ret = dict(self.get_serial_info(document), **ret)
 
         ret['session'] = session_data
+
+        return ret
+
+    def get_serial_info(self, document):
+        ret = {}
+
+        ret['seasons'] = {}
+        ret['episodes'] = {}
+
+        for item in document.xpath('//select[@id="season"]/option'):
+            value = int(item.get('value'))
+            ret['seasons'][value] = unicode(item.text_content())
+            if item.get('selected'):
+                ret['current_season'] = int(value)
+
+        for item in document.xpath('//select[@id="episode"]/option'):
+            value = int(item.get('value'))
+            ret['episodes'][value] = unicode(item.text_content())
+            if item.get('selected'):
+                ret['current_episode'] = int(value)
 
         return ret
 
@@ -229,8 +250,9 @@ class HDSerialsService(MwService):
         return self.get_urls(session_data['headers'], session_data['data'])[2]
 
     def get_iframe_url(self, url):
-        response = self.http_request(url)
-        document = self.to_document(response.read())
+        # response = self.http_request(url)
+        # document = self.to_document(response.read())
+        document = self.fetch_document(url)
 
         frame_block = document.xpath('//div[@id="k2Container"]')[0]
 
