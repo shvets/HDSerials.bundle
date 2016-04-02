@@ -53,6 +53,8 @@ def MediaObjectsForURL(url):
                 season = item['current_season']
                 episode = url.episode
 
+        # Play2(session, url_update, season, episode)
+
         ret.append(MediaObject(
             parts=[PartObject(
                 key=Callback(
@@ -72,6 +74,75 @@ def MediaObjectsForURL(url):
         ))
 
     return ret
+
+# def Play2(session, url, season, episode):
+#     Log.Debug('Get playlist from %s' % url)
+#
+#     Log(session)
+#
+#     if not session:
+#         url_info = Common.GetInfoByURL(Common.GetEpisodeURL(
+#             url, season, episode
+#         ), url)
+#
+#         if not url_info:
+#             raise Ex.MediaNotAvailable
+#
+#         session = url_info['session']
+#     else:
+#         session = JSON.ObjectFromString(session)
+#
+#     res = JSON.ObjectFromURL(
+#         url='http://moonwalk.cc/sessions/create_session',
+#         values=session['values'],
+#         headers=session['headers'],
+#         method='POST',
+#         cacheTime=0
+#     )
+#
+#     if not res:
+#         raise Ex.MediaNotAvailable
+#
+#     try:
+#         res = HTTP.Request(res['manifest_m3u8']).content
+#         Log.Debug('Found streams: %s' % res)
+#     except:
+#         raise Ex.MediaNotAvailable
+#
+#
+#     res = [line for line in res.splitlines() if line].pop()
+#
+#     Log.Debug('Try to play %s' % res)
+#
+#     res2 = Playlist2(res)
+#
+#     # Log(res2)
+#
+# def Playlist2(res):
+#
+#     # Some players does not support gziped response
+#     Log.Debug('Modify playlist %s' % res)
+#
+#     path = res.replace('tracks-2,4', 'tracks-1,4').split('/')
+#     path.pop()
+#     path = '/'.join(path)
+#
+#     #Log(path)
+#
+#     try:
+#         res = HTTP.Request(res).content.splitlines()
+#     except:
+#         raise Ex.MediaNotAvailable
+#
+#     #Log(res)
+#
+#     for i in range(0, len(res)):
+#         if res[i] == '#EXT-X-ENDLIST':
+#             break
+#         if res[i][:1] != '#':
+#             res[i] = path + '/' + res[i]
+#
+#     return "\n".join(res)
 
 
 def MetadataObjectForURL(url):
