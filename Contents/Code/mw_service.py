@@ -6,19 +6,6 @@ from http_service import HttpService
 
 class MwService(HttpService):
 
-    def collect_session_data(self, url):
-        response = self.http_request(url).read()
-
-        return {
-            'data': self.get_session_data(response),
-            'headers': {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Referer': url,
-                'Content-Data': self.get_content_data(response),
-                'Cookie': self.get_cookies(response)
-            },
-        }
-
     def get_session_data(self, response):
         session_data = re.compile(
             ('\$\.post\(\'/sessions\/create_session\', {((?:.|\n)+)}\)\.success')
@@ -31,6 +18,34 @@ class MwService(HttpService):
                                                  ['partner', 'd_id', 'video_token', 'content_type', 'access_key', 'cd'])
 
             return json.loads(new_session_data)
+
+    # def get_session_data(self, document):
+    #     body = tostring(document.xpath('body')[0])
+    #
+    #     session_data = re.compile(
+    #         ('\$\.post\(\'/sessions\/create_session\', {((?:.|\n)+)}\)\.success')
+    #     ).search(body, re.MULTILINE)
+    #
+    #     if session_data:
+    #         session_data = session_data.group(1).replace('condition_detected ? 1 : ', '')
+    #
+    #         new_session_data = self.replace_keys('{%s}' % session_data,
+    #                                              ['partner', 'd_id', 'video_token', 'content_type', 'access_key', 'cd'])
+    #
+    #         return json.loads(new_session_data)
+
+    def collect_session_data(self, url):
+        response = self.http_request(url).read()
+
+        return {
+            'data': self.get_session_data(response),
+            'headers': {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Referer': url,
+                'Content-Data': self.get_content_data(response),
+                'Cookie': self.get_cookies(response)
+            },
+        }
 
     def get_content_data(self, response):
         data = re.compile(
@@ -65,7 +80,25 @@ class MwService(HttpService):
 
         return ret
 
-    def get_url(self, headers, data, url=None, season=None, episode=None):
+    # def get_url(self, headers, data, url=None, season=None, episode=None):
+    #     response = self.http_request(method='POST', url='http://moonwalk.cc/sessions/create_session',
+    #                                  headers=headers, data=data)
+    #
+    #     data = json.loads(response.read())
+    #
+    #     manifest_url = data['manifest_m3u8']
+    #
+    #     response2 = self.http_request(manifest_url)
+    #
+    #     data2 = response2.read()
+    #
+    #     # print(data2)
+    #
+    #     url2 = [line for line in data2.splitlines() if line].pop()
+    #
+    #     return url2
+
+    def get_urls(self, headers, data):
         response = self.http_request(method='POST', url='http://moonwalk.cc/sessions/create_session',
                                      headers=headers, data=data)
 
@@ -77,26 +110,21 @@ class MwService(HttpService):
 
         data2 = response2.read()
 
-        # print(data2)
+        # url2 = [line for line in data2.splitlines() if line].pop()
 
-        url2 = [line for line in data2.splitlines() if line].pop()
+        lines = data2.splitlines()
 
-        return url2
+        urls = []
 
-    # def get_play_list(self, url):
-    #     path = url.replace('tracks-2,4', 'tracks-1,4').split('/')
-    #     path.pop()
-    #     path = '/'.join(path)
-    #
-    #     response = self.http_request(url).read().splitlines()
-    #
-    #     for i in range(0, len(response)):
-    #         if response[i] == '#EXT-X-ENDLIST':
-    #             break
-    #         if response[i][:1] != '#':
-    #             response[i] = path + '/' + response[i]
-    #
-    #     return "\n".join(response)
+        for index, line in enumerate(lines):
+            if line.startswith('#EXTM3U'):
+                continue
+            elif not line.startswith('#EXT-X-STREAM-INF'):
+                data = re.search("#EXT-X-STREAM-INF:RESOLUTION=(\d+)x(\d+),BANDWIDTH=(\d+)", lines[index - 1])
+
+                urls.append({"url": line, "width": data.group(1), "height": data.group(2), "bandwith": data.group(3)})
+
+        return urls
 
     def replace_keys(self, s, keys):
         s = s.replace('\'', '"')

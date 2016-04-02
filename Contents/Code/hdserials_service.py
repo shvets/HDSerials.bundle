@@ -214,7 +214,7 @@ class HDSerialsService(MwService):
 
         return ret
 
-    def retrieve_url(self, url):
+    def retrieve_urls(self, url):
         iframe_url = self.get_iframe_url(url)
 
         session_data = self.collect_session_data(iframe_url)
@@ -226,7 +226,7 @@ class HDSerialsService(MwService):
         # if session_data['data']['content_type'] == 'serial':
         #     ret = self.get_serial_info(url)
 
-        return self.get_url(session_data['headers'], session_data['data'])
+        return self.get_urls(session_data['headers'], session_data['data'])[2]
 
     def get_iframe_url(self, url):
         response = self.http_request(url)

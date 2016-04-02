@@ -90,7 +90,7 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         path = new_series[0]['path']
 
-        url = self.service.retrieve_url(path)
+        url = self.service.retrieve_urls(path)['url']
 
         print(url)
 
@@ -101,7 +101,7 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         path = new_series[0]['path']
 
-        url = self.service.retrieve_url(path)
+        url = self.service.retrieve_urls(path)['url']
 
         play_list = self.service.get_play_list(url)
 
@@ -118,9 +118,9 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         print(json.dumps(info, indent=4))
 
-        url = self.service.get_url(info['session']['headers'], info['session']['data'])
+        urls = self.service.get_urls(info['session']['headers'], info['session']['data'])
 
-        print(url)
+        print(json.dumps(urls, indent=4))
 
     def test_get_info_by_url(self):
         new_series = self.service.get_new_series()
