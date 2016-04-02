@@ -31,7 +31,7 @@ class HDSerialsServiceTest(unittest.TestCase):
     def test_search(self):
         query = 'castle'
 
-        result = self.service.search(query)
+        result = json.loads(self.service.search(query))
 
         #print(json.dumps(result, indent=4))
 
@@ -149,13 +149,8 @@ class HDSerialsServiceTest(unittest.TestCase):
   }
         '''
 
-        print(json.loads(self.replace_keys(l, ['partner', 'd_id', 'video_token', 'content_type', 'access_key', 'cd'])))
+        print(json.loads(self.service.replace_keys(l, ['partner', 'd_id', 'video_token', 'content_type', 'access_key', 'cd'])))
 
-    def replace_keys(self, s, keys):
-        for key in keys:
-           s = s.replace(key + ':', '"' + key + '":')
-
-        return s
 
 if __name__ == '__main__':
     unittest.main()

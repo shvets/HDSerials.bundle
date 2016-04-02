@@ -260,6 +260,34 @@ class HDSerialsService(MwService):
 
         return urls[0].get('src')
 
+    def collect_session_data(self, url):
+        response = self.http_request(url)
+        content = response.read()
+
+        return {
+            'data': self.get_session_data(content),
+            'headers': {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Referer': url,
+                'Content-Data': self.get_content_data(content)
+                # 'Cookie': self.get_cookies(response)
+            },
+        }
+
+    def get_cookie_info(self, url):
+        response = self.http_request(url)
+        document = self.to_document(response.read())
+
+        cookie = response.headers['Set-Cookie']
+
+        index = cookie.index(';')
+
+        cookie = cookie[0: index + 1]
+
+        csrf_token = document.xpath('//meta[@name="csrf-token"]/@content')[0]
+
+        return {'cookie': str(cookie), 'csrf-token': str(csrf_token)}
+
     def search(self, query):
         params = urllib.urlencode({
             'option': 'com_k2',
@@ -273,7 +301,7 @@ class HDSerialsService(MwService):
 
         response = self.http_request(self.URL + "/index.php?" + params)
 
-        return json.loads(response.read())
+        return response.read()
 
     def replace_keys(self, s, keys):
         s = s.replace('\'', '"')

@@ -6,10 +6,10 @@ from http_service import HttpService
 
 class MwService(HttpService):
 
-    def get_session_data(self, response):
+    def get_session_data(self, content):
         session_data = re.compile(
             ('\$\.post\(\'/sessions\/create_session\', {((?:.|\n)+)}\)\.success')
-        ).search(response, re.MULTILINE)
+        ).search(content, re.MULTILINE)
 
         if session_data:
             session_data = session_data.group(1).replace('condition_detected ? 1 : ', '')
@@ -19,45 +19,13 @@ class MwService(HttpService):
 
             return json.loads(new_session_data)
 
-    # def get_session_data(self, document):
-    #     body = tostring(document.xpath('body')[0])
-    #
-    #     session_data = re.compile(
-    #         ('\$\.post\(\'/sessions\/create_session\', {((?:.|\n)+)}\)\.success')
-    #     ).search(body, re.MULTILINE)
-    #
-    #     if session_data:
-    #         session_data = session_data.group(1).replace('condition_detected ? 1 : ', '')
-    #
-    #         new_session_data = self.replace_keys('{%s}' % session_data,
-    #                                              ['partner', 'd_id', 'video_token', 'content_type', 'access_key', 'cd'])
-    #
-    #         return json.loads(new_session_data)
-
-    def collect_session_data(self, url):
-        response = self.http_request(url).read()
-
-        return {
-            'data': self.get_session_data(response),
-            'headers': {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Referer': url,
-                'Content-Data': self.get_content_data(response)
-                # 'Cookie': self.get_cookies(response)
-            },
-        }
-
-    def get_content_data(self, response):
+    def get_content_data(self, content):
         data = re.compile(
             ('setRequestHeader\|([^|]+)')
-        ).search(response, re.MULTILINE)
+        ).search(content, re.MULTILINE)
 
         if data:
             return base64.b64encode(data.group(1))
-
-    # def get_cookies(self, response):
-    #     return None
-
 
     def get_urls(self, headers, data):
         response = self.http_request(method='POST', url='http://moonwalk.cc/sessions/create_session',
