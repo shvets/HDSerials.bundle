@@ -59,13 +59,9 @@ class HDSerialsService(MwService):
 
         data['title'] = [l.strip() for l in title_block]
 
-        # Log(data['title'])
-
         data['rating'] = float(re.compile('width\s?:\s?([\d\.]+)').search(
             frame_block.xpath('//div[@class="itemRatingBlock"]//li[@class="itemCurrentRating"]')[0].get('style')
         ).group(1)) / 10
-
-        # Log(data['rating'])
 
         data['meta'] = frame_block.xpath(
             '//div[@class="itemFullText"]//text() ' +
@@ -133,24 +129,6 @@ class HDSerialsService(MwService):
 
         url = self.build_url(self.URL + "/index.php?", **params)
 
-        #response = self.http_request(url)
-
-        #content = response.read()
-
-        # params = urllib.urlencode({
-        #     'option': 'com_k2',
-        #     'view': 'itemlist',
-        #     'task': 'search',
-        #     'searchword': query,
-        #     'categories': '',
-        #     'format': 'json',
-        #     'tpl': 'search',
-        # })
-
-        # response = self.http_request(self.URL + "/index.php?" + params)
-        #
-        # content = response.read()
-
         content = self.fetch_content(url)
 
         return self.get_movies(content)
@@ -195,9 +173,8 @@ class HDSerialsService(MwService):
 
         try:
             for url in media_data['urls']:
-                # Log.Debug('Found variant %s', url)
-
                 variant = self.get_info_by_url(url.get('src'), http_headers)
+
                 if variant:
                     data['variants'][variant['url']] = variant
                     if 'session' not in data:

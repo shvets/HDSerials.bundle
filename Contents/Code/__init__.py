@@ -25,25 +25,28 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import history
+import common
+from plex_service import PlexService
+
+service = PlexService()
+
+import main
+
 from updater import Updater
 Common = SharedCodeService.common
 
 
 def Start():
     HTTP.Headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux i686; rv:32.0) Gecko/20100101 Firefox/32.0'
-    DirectoryObject.art = R(Common.ART)
+    DirectoryObject.art = R(common.ART)
 
 
 ###############################################################################
 # Video
 ###############################################################################
 
-@handler(
-    Common.PREFIX,
-    L(Common.TITLE),
-    R(Common.ART),
-    R(Common.ICON)
-)
+@handler(common.PREFIX, L('Title'), R(common.ART), R(common.ICON))
 def MainMenu():
     cats = Common.GetPage('/').xpath(
         '//div[@id="gkDropMain"]//a[contains(@href, ".html")]'
@@ -55,9 +58,9 @@ def MainMenu():
             L('Service not avaliable')
         )
 
-    oc = ObjectContainer(title2=L(Common.TITLE), no_cache=True)
+    oc = ObjectContainer(title2=L('Title'), no_cache=True)
 
-    Updater(Common.PREFIX+'/update', oc)
+    Updater(common.PREFIX+'/update', oc)
 
     oc.add(DirectoryObject(
         key=Callback(ShowNews),
@@ -75,19 +78,18 @@ def MainMenu():
             title=title
         ))
 
+    oc.add(DirectoryObject(key=Callback(History), title=L('History')))
+    oc.add(DirectoryObject(key=Callback(main.HandleQueue, title=unicode(L('Queue'))), title=unicode(L('Queue'))))
+
     oc.add(InputDirectoryObject(
         key=Callback(Search),
         title=u'Поиск', prompt=u'Искать на HDSerials'
-    ))
-    oc.add(DirectoryObject(
-        key=Callback(History),
-        title=u'История'
     ))
 
     return oc
 
 
-@route(Common.PREFIX + '/news')
+@route(common.PREFIX + '/news')
 def ShowNews():
     page = Common.GetPage('/').xpath(
         '//div[@id="gkHeaderheader1"]//div[@class="custom"]/div'
@@ -124,7 +126,7 @@ def ShowNews():
     return oc
 
 
-@route(Common.PREFIX + '/popular')
+@route(common.PREFIX + '/popular')
 def ShowPopular():
     page = Common.GetPage('/popular.html').xpath(
         '//div[contains(@class, "nspArts")]//div[contains(@class, "nspArt")]/div'
@@ -145,7 +147,7 @@ def ShowPopular():
     return oc
 
 
-@route(Common.PREFIX + '/category')
+@route(common.PREFIX + '/category')
 def ShowCategory(path, title, show_items=False):
     page = Common.GetPage(path)
 
@@ -189,7 +191,7 @@ def ShowCategory(path, title, show_items=False):
                 title=u'%s' % item.get('title'),
                 key=Callback(ShowInfo, path=item.get('href')),
                 thumb='%s%s' % (
-                    Common.HDSERIALS_URL,
+                    service.URL,
                     item.find('img').get('src')
                 ),
             ))
@@ -212,9 +214,9 @@ def ShowCategory(path, title, show_items=False):
     return oc
 
 
-@route(Common.PREFIX + '/history')
+@route(common.PREFIX + '/history')
 def History():
-    history = Data.LoadObject(Common.KEY_HISTORY)
+    history = Data.LoadObject(common.KEY_HISTORY)
 
     if not history or not len(history):
         return ContentNotFound()
@@ -237,15 +239,24 @@ def History():
 
     return oc
 
-
-@route(Common.PREFIX + '/info')
+@route(common.PREFIX + '/info')
 def ShowInfo(path, **kwargs):
 
     info = ParsePage(path)
     if not info:
         return ContentNotFound()
 
-    PushToHistory(info)
+    if 'season' in kwargs:
+        info['season'] = kwargs['season']
+    else:
+        info['season'] = None
+
+    if 'episode' in kwargs:
+        info['episode'] = kwargs['episode']
+    else:
+        info['episode'] = None
+
+    history.push_to_history(info)
 
     if 'seasons' in info:
         if 'season' in kwargs and kwargs['season'] in info['seasons']:
@@ -261,7 +272,7 @@ def ShowInfo(path, **kwargs):
     return ObjectContainer(objects=[vo], content=ContainerContent.Movies)
 
 
-@route(Common.PREFIX + '/seasons')
+@route(common.PREFIX + '/seasons')
 def Seasons(path):
 
     data = ParsePage(path)
@@ -296,7 +307,7 @@ def Seasons(path):
     return oc
 
 
-@route(Common.PREFIX + '/episodes')
+@route(common.PREFIX + '/episodes')
 def Episodes(path, season):
 
     Log.Debug('Get episodes for %s' % path)
@@ -346,8 +357,7 @@ def Search(query):
         name='HDSerials'
     )
 
-
-@route(Common.HDSERIALS_META_ROUTE)
+@route(common.PREFIX + '/getmeta')
 def GetMeta(path, episode):
     episode = int(episode)
 
@@ -371,11 +381,11 @@ def ContentNotFound():
 
 def ParsePage(path):
 
-    if Common.HDSERIALS_URL not in path:
-        path = Common.HDSERIALS_URL+path
+    if service.URL not in path:
+        path = service.URL+path
 
-    if Data.Exists(Common.KEY_CACHE):
-        ret = Data.LoadObject(Common.KEY_CACHE)
+    if Data.Exists(common.KEY_CACHE):
+        ret = Data.LoadObject(common.KEY_CACHE)
         if ret and 'path' in ret and ret['path'] == path:
             Log.Debug('Return from cache %s' % path)
             return ret
@@ -411,7 +421,7 @@ def ParsePage(path):
         'path': path,
         'rating': 0.00,
         'thumb': '%s%s' % (
-            Common.HDSERIALS_URL,
+            service.URL,
             page.xpath(
                 '//div[@class="itemImageBlock"]//a'
             )[0].get('href')
@@ -498,7 +508,7 @@ def ParsePage(path):
             data['episodes'] = data['variants']
 
     ret.update(data)
-    Data.SaveObject(Common.KEY_CACHE, ret)
+    Data.SaveObject(common.KEY_CACHE, ret)
 
     return ret
 
@@ -532,33 +542,7 @@ def UpdateItemInfo(item, season, episode):
     del update['seasons']
     item.update(update)
 
-    Data.SaveObject(Common.KEY_CACHE, item)
+    Data.SaveObject(common.KEY_CACHE, item)
 
     return item
 
-
-def PushToHistory(item):
-    history = Data.LoadObject(Common.KEY_HISTORY)
-
-    if not history:
-        history = {}
-
-    history[item['path']] = {
-        'path': item['path'],
-        'title': item['title'],
-        'thumb': item['thumb'],
-        'time': Datetime.TimestampFromDatetime(Datetime.Now()),
-    }
-
-    # Trim old items
-    if len(history) > Common.HISTORY_SIZE:
-        items = sorted(
-            history.values(),
-            key=lambda k: k['time'],
-            reverse=True
-        )[:Common.HISTORY_SIZE]
-        history = {}
-        for item in items:
-            history[item['path']] = item
-
-    Data.SaveObject(Common.KEY_HISTORY, history)

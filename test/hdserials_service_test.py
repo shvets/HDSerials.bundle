@@ -15,7 +15,6 @@ class HDSerialsServiceTest(unittest.TestCase):
         menu_items = self.service.get_menu()
 
         for item in menu_items:
-            #print item
             self.assertTrue(len(item['path']) > 0)
             self.assertTrue(len(item['title']) > 0)
 
@@ -23,7 +22,6 @@ class HDSerialsServiceTest(unittest.TestCase):
         new_series = self.service.get_new_series()
 
         for serie in new_series:
-            # print item
             self.assertTrue(len(serie['path']) > 0)
             self.assertTrue(len(serie['title']) > 0)
 
@@ -32,7 +30,6 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         result = self.service.search(query)
 
-        #print(result)
         print(json.dumps(result, indent=4))
 
     def test_get_media_data(self):
@@ -51,7 +48,6 @@ class HDSerialsServiceTest(unittest.TestCase):
             # self.assertTrue(len(item['title']) > 0)
 
     def test_parse_page(self):
-        # path = 'http://moonwalk.cc/serial/f26e26e1c4b2f4dcbc4f5d81bf680ffe/iframe'
         new_series = self.service.get_new_series()
 
         path = new_series[0]['path']
@@ -61,7 +57,6 @@ class HDSerialsServiceTest(unittest.TestCase):
         print(json.dumps(result, indent=4))
 
     def test_retrieve_url(self):
-        #path = '/Multfilmy/Pixar-Animation-Studios/Horoshiy-dinozavr-/-The-Good-Dinosaur.html'
         new_series = self.service.get_new_series()
 
         path = new_series[0]['path']
@@ -71,22 +66,19 @@ class HDSerialsServiceTest(unittest.TestCase):
         print(json.dumps(urls, indent=4))
 
     def test_get_play_list(self):
-        #path = '/Multfilmy/Pixar-Animation-Studios/Horoshiy-dinozavr-/-The-Good-Dinosaur.html'
-
         new_series = self.service.get_new_series()
 
         path = new_series[0]['path']
 
         urls = self.service.retrieve_urls(path)
 
-        # print(json.dumps(urls, indent=4))
-
         play_list = self.service.get_play_list(urls[0]['url'])
 
         print(play_list)
 
     def test_get_url(self):
-        path = self.service.URL + '/Multfilmy/Pixar-Animation-Studios/Horoshiy-dinozavr-/-The-Good-Dinosaur.html'
+        new_series = self.service.get_new_series()
+        path = new_series[0]['path']
 
         media_data = self.service.get_media_data(path)
 
@@ -128,7 +120,6 @@ class HDSerialsServiceTest(unittest.TestCase):
         '''
 
         print(json.loads(self.service.replace_keys(l, ['partner', 'd_id', 'video_token', 'content_type', 'access_key', 'cd'])))
-
 
 if __name__ == '__main__':
     unittest.main()
