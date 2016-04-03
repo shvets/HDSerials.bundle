@@ -4,7 +4,6 @@ import test_helper
 
 import unittest
 import json
-import urllib
 
 from hdserials_service import HDSerialsService
 
@@ -31,33 +30,10 @@ class HDSerialsServiceTest(unittest.TestCase):
     def test_search(self):
         query = 'castle'
 
-        result = json.loads(self.service.search(query))
+        result = self.service.search(query)
 
-        #print(json.dumps(result, indent=4))
-
-        if 'items' in result:
-            for item in result['items']:
-                if item['title'] in item['category']['name']:
-                    title = u'%s' % item['category']['name']
-
-                    key = '%s?%s' % (
-                        '/video/hdserials/info',
-                        urllib.urlencode({'path': item['link']}))
-                else:
-                    title = u'%s / %s' % (item['category']['name'], item['title'])
-                    key = '%s%s' % (self.service.URL, item['link'])
-
-                print('title:' + title)
-                print('key:' + key)
-                print('rating_key:' + item['link'])
-
-                thumb = '%s%s' % (
-                    self.service.URL,
-                    item['image']
-                ),
-                print('thumb:' + unicode(thumb))
-
-                print('summary :' + self.service.to_document(item['introtext']).text_content())
+        #print(result)
+        print(json.dumps(result, indent=4))
 
     def test_get_media_data(self):
         new_series = self.service.get_new_series()
@@ -90,9 +66,9 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         path = new_series[0]['path']
 
-        url = self.service.retrieve_urls(path)['url']
+        urls = self.service.retrieve_urls(path)
 
-        print(url)
+        print(json.dumps(urls, indent=4))
 
     def test_get_play_list(self):
         #path = '/Multfilmy/Pixar-Animation-Studios/Horoshiy-dinozavr-/-The-Good-Dinosaur.html'
@@ -101,9 +77,11 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         path = new_series[0]['path']
 
-        url = self.service.retrieve_urls(path)['url']
+        urls = self.service.retrieve_urls(path)
 
-        play_list = self.service.get_play_list(url)
+        # print(json.dumps(urls, indent=4))
+
+        play_list = self.service.get_play_list(urls[0]['url'])
 
         print(play_list)
 

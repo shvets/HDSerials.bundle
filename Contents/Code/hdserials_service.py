@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import urllib
-import json
 import re
+import json
+from lxml.etree import tostring
 
 from mw_service import MwService
 
@@ -74,6 +75,116 @@ class HDSerialsService(MwService):
         )
 
         return data
+
+    def retrieve_urls(self, url, season=None, episode=None):
+        document = self.get_movie_document(url, season=season, episode=episode)
+        content = tostring(document.xpath('body')[0])
+
+        data = self.get_session_data(content)
+
+        headers = {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Referer': url,
+            'Content-Data': self.get_content_data(content)
+        }
+
+        return self.get_urls(headers, data)
+
+    def get_movie_document(self, url, season=None, episode=None):
+        gateway_url = self.get_gateway_url(self.fetch_document(url))
+
+        if season:
+            movie_url = '%s?season=%d&episode=%d' % (gateway_url, int(season), int(episode))
+        else:
+            movie_url = gateway_url
+
+        return self.fetch_document(movie_url)
+
+    def get_serial_info(self, document):
+        ret = {}
+
+        ret['seasons'] = {}
+        ret['episodes'] = {}
+
+        for item in document.xpath('//select[@id="season"]/option'):
+            value = int(item.get('value'))
+            ret['seasons'][value] = unicode(item.text_content())
+            if item.get('selected'):
+                ret['current_season'] = int(value)
+
+        for item in document.xpath('//select[@id="episode"]/option'):
+            value = int(item.get('value'))
+            ret['episodes'][value] = unicode(item.text_content())
+            if item.get('selected'):
+                ret['current_episode'] = int(value)
+
+        return ret
+
+    def search(self, query):
+        params = {
+            'option': 'com_k2',
+            'view': 'itemlist',
+            'task': 'search',
+            'searchword': query,
+            'categories': '',
+            'format': 'json',
+            'tpl': 'search',
+        }
+
+        url = self.build_url(self.URL + "/index.php?", **params)
+
+        #response = self.http_request(url)
+
+        #content = response.read()
+
+        # params = urllib.urlencode({
+        #     'option': 'com_k2',
+        #     'view': 'itemlist',
+        #     'task': 'search',
+        #     'searchword': query,
+        #     'categories': '',
+        #     'format': 'json',
+        #     'tpl': 'search',
+        # })
+
+        # response = self.http_request(self.URL + "/index.php?" + params)
+        #
+        # content = response.read()
+
+        content = self.fetch_content(url)
+
+        return self.get_movies(content)
+
+    def get_movies(self, content):
+        result = {'movies': []}
+
+        data = json.loads(content)
+
+        if 'items' in data:
+            for item in data['items']:
+                if item['title'] in item['category']['name']:
+                    title = u'%s' % item['category']['name']
+
+                    key = '%s?%s' % (
+                        '/video/hdserials/info',
+                        urllib.urlencode({'path': item['link']}))
+                else:
+                    title = u'%s / %s' % (item['category']['name'], item['title'])
+                    key = '%s%s' % (self.URL, item['link'])
+
+
+                rating_key = item['link']
+
+                thumb = '%s%s' % (
+                    self.URL,
+                    item['image']
+                )
+
+                summary = self.to_document(item['introtext']).text_content()
+
+                result['movies'].append({"key": key, "rating_key": rating_key, "name": title, "thumb": thumb, "summary": summary})
+
+        return result
 
     def parse_page(self, path):
         http_headers = {'Referer': path}
@@ -198,7 +309,18 @@ class HDSerialsService(MwService):
         elif 'Referer' in http_headers:
             headers['Referer'] = http_headers['Referer']
 
-        session_data = self.collect_session_data(url)
+        response = self.http_request(url)
+        content = response.read()
+
+        session_data = {
+            'data': self.get_session_data(content),
+            'headers': {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Referer': url,
+                'Content-Data': self.get_content_data(content)
+                # 'Cookie': self.get_cookies(response)
+            },
+        }
 
         ret = {}
         ret['url'] = parent if parent else url
@@ -215,64 +337,17 @@ class HDSerialsService(MwService):
 
         return ret
 
-    def get_serial_info(self, document):
-        ret = {}
-
-        ret['seasons'] = {}
-        ret['episodes'] = {}
-
-        for item in document.xpath('//select[@id="season"]/option'):
-            value = int(item.get('value'))
-            ret['seasons'][value] = unicode(item.text_content())
-            if item.get('selected'):
-                ret['current_season'] = int(value)
-
-        for item in document.xpath('//select[@id="episode"]/option'):
-            value = int(item.get('value'))
-            ret['episodes'][value] = unicode(item.text_content())
-            if item.get('selected'):
-                ret['current_episode'] = int(value)
-
-        return ret
-
-    def retrieve_urls(self, url):
-        iframe_url = self.get_iframe_url(url)
-
-        session_data = self.collect_session_data(iframe_url)
-
-        #print(json.dumps(session_data, indent=4))
-
-        # ret = {}
-        #
-        # if session_data['data']['content_type'] == 'serial':
-        #     ret = self.get_serial_info(url)
-
-        return self.get_urls(session_data['headers'], session_data['data'])[2]
-
-    def get_iframe_url(self, url):
-        # response = self.http_request(url)
-        # document = self.to_document(response.read())
-        document = self.fetch_document(url)
+    def get_gateway_url(self, document):
+        gateway_url = None
 
         frame_block = document.xpath('//div[@id="k2Container"]')[0]
 
         urls = frame_block.xpath('//div[@class="itemFullText"]//iframe[@src]')
 
-        return urls[0].get('src')
+        if len(urls) > 0:
+            gateway_url = urls[0].get('src')
 
-    def collect_session_data(self, url):
-        response = self.http_request(url)
-        content = response.read()
-
-        return {
-            'data': self.get_session_data(content),
-            'headers': {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Referer': url,
-                'Content-Data': self.get_content_data(content)
-                # 'Cookie': self.get_cookies(response)
-            },
-        }
+        return gateway_url
 
     def get_cookie_info(self, url):
         response = self.http_request(url)
@@ -287,21 +362,6 @@ class HDSerialsService(MwService):
         csrf_token = document.xpath('//meta[@name="csrf-token"]/@content')[0]
 
         return {'cookie': str(cookie), 'csrf-token': str(csrf_token)}
-
-    def search(self, query):
-        params = urllib.urlencode({
-            'option': 'com_k2',
-            'view': 'itemlist',
-            'task': 'search',
-            'searchword': query,
-            'categories': '',
-            'format': 'json',
-            'tpl': 'search',
-        })
-
-        response = self.http_request(self.URL + "/index.php?" + params)
-
-        return response.read()
 
     def replace_keys(self, s, keys):
         s = s.replace('\'', '"')
