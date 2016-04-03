@@ -82,7 +82,7 @@ def MainMenu():
     oc.add(DirectoryObject(key=Callback(main.HandleQueue, title=unicode(L('Queue'))), title=unicode(L('Queue'))))
 
     oc.add(InputDirectoryObject(
-        key=Callback(Search),
+        key=Callback(main.HandleSearch),
         title=u'Поиск', prompt=u'Искать на HDSerials'
     ))
 
@@ -350,12 +350,12 @@ def Episodes(path, season):
     return oc
 
 
-def Search(query):
-    return SearchService.Query(
-        query=query,
-        identifier=Plugin.Identifier,
-        name='HDSerials'
-    )
+# def Search(query):
+#     return SearchService.Query(
+#         query=query,
+#         identifier=Plugin.Identifier,
+#         name='HDSerials'
+#     )
 
 @route(common.PREFIX + '/getmeta')
 def GetMeta(path, episode):
