@@ -42,6 +42,24 @@ class HDSerialsService(MwService):
 
         return list
 
+    def get_popular(self):
+        list = []
+
+        document = self.fetch_document(self.URL + '/popular.html')
+
+        items = document.xpath('//div[contains(@class, "nspArts")]//div[contains(@class, "nspArt")]/div')
+
+        for item in items:
+            title = item.find('h4').text_content()
+            link = item.find('a')
+
+            path = link.xpath('@href')[0]
+            thumb = link.find('img').get('src')
+
+            list.append({'path': path, 'title': title, 'thumb': thumb})
+
+        return list
+
     def get_media_data(self, path):
         data = {}
 

@@ -2,67 +2,47 @@
 
 import constants
 import urllib
-
 from urllib import urlencode
+
+from flow_builder import FlowBuilder
+
+builder = FlowBuilder()
 
 @route(constants.PREFIX + '/news')
 def ShowNews():
-    page = GetPage('/').xpath(
-        '//div[@id="gkHeaderheader1"]//div[@class="custom"]/div'
-    )
-
-    if not page:
-        return ContentNotFound()
-
     oc = ObjectContainer(title2=u'Новые серии')
-    for item in page:
-        title = u'%s' % item.text_content()
-        try:
-            info = ParseNewsTitle(title)
-            title = u'%s - S%dE%d (%s)' % (
-                info['title'],
-                int(info['season']),
-                int(info['episode']),
-                info['date']
-            )
-            season = info['season']
-            episode = info['episode']
-        except:
-            season = None
-            episode = None
-            pass
+
+    new_series = service.get_new_series()
+
+    for item in new_series:
+        path = item['path']
+
+        info = get_episode_info(item['title'])
+
         oc.add(DirectoryObject(
-            key=Callback(
-                ShowInfo,
-                path=item.find('a').get('href'),
-                season=season
-            ),
-            title=title
+            key=Callback(ShowInfo, path=path, season=info['season'], episode=info['episode']),
+            title=item['title']
         ))
 
     return oc
 
-
 @route(constants.PREFIX + '/popular')
 def ShowPopular():
-    page = GetPage('/popular.html').xpath(
-        '//div[contains(@class, "nspArts")]//div[contains(@class, "nspArt")]/div'
-    )
-    if not page:
-        return ContentNotFound()
+    oc = ObjectContainer(title2=unicode(L('Popular')))
 
-    oc = ObjectContainer(title2=u'Популярное')
-    for item in page:
+    items = service.get_popular()
+
+    for item in items:
+        title = item['title']
+        path = item['path']
+        thumb = item['thumb']
+
         link = item.find('a')
+
         if link:
-            oc.add(DirectoryObject(
-                key=Callback(ShowInfo, path=link.get('href')),
-                title=item.find('h4').text_content(),
-                thumb=link.find('img').get('src')
-            ))
+            oc.add(DirectoryObject(key=Callback(ShowInfo, path=path), title=title, thumb=thumb))
 
     return oc
-
 
 @route(constants.PREFIX + '/category')
 def ShowCategory(path, title, show_items=False):
@@ -529,41 +509,40 @@ def MetadataObjectForURL(url):
 
         title = item['episodes'][str(episode)]
 
-        video = EpisodeObject(
-            rating_key=GetEpisodeURL(
-                item['url'],
-                item['current_season'],
-                episode
-            ),
-            title=title,
-            season=int(item['current_season']),
-            index=int(episode),
-            show=item['title'],
-            **kwargs
+        rating_key = GetEpisodeURL(
+            item['url'],
+            item['current_season'],
+            episode
         )
+        # video = EpisodeObject(
+        #     rating_key=GetEpisodeURL(
+        #         item['url'],
+        #         item['current_season'],
+        #         episode
+        #     ),
+        #     title=title,
+        #     season=int(item['current_season']),
+        #     index=int(episode),
+        #     show=item['title'],
+        #     **kwargs
+        # )
+        video = builder.build_metadata_object(media_type='episode', rating_key=rating_key, title=title,
+            season=int(item['current_season']), index=int(episode), show=item['title'], **kwargs)
     else:
         for k in ['year', 'original_title', 'countries']:
             if k in item and item[k]:
                 kwargs[k] = item[k]
 
         title = item['title']
-        video = MovieObject(
-            title=title,
-            rating_key=item['url'],
-            **kwargs
-        )
 
-    rating_key = 'rating_key'
-    # video.rating = 5.0
-    thumb = item['thumb']
-    # video.year = data['year']
-    # video.tags = data['tags']
-    # video.duration = data['duration'] * 60 * 1000
-    summary = 'summary'
+        # video = MovieObject(
+        #     title=title,
+        #     rating_key=item['url'],
+        #     **kwargs
+        # )
+        video = builder.build_metadata_object(media_type='movie', title=title, rating_key=item['url'], **kwargs)
 
     video.key = Callback(HandleMovie, title=title, url=url)
-        # , rating_key=rating_key, thumb=thumb, summary=summary,
-        #                  container=True)
 
     video.items = MediaObjectsForURL(url)
 
@@ -592,17 +571,21 @@ def MediaObjectsForURL(url):
                 season = item['current_season']
                 episode = url.episode
 
-        media_object = MediaObject(
-            parts=[PartObject(
-                key=Callback(Play, url=url_update, season=season, episode=episode, session=session),
-            )],
-            video_resolution=720,
-            container='mpegts',
-            video_codec=VideoCodec.H264,
-            audio_codec=AudioCodec.AAC,
-            optimized_for_streaming=True,
-            audio_channels=2
-        )
+        # media_object = MediaObject(
+        #     parts=[PartObject(
+        #         key=Callback(Play, url=url_update, season=season, episode=episode, session=session),
+        #     )],
+        #     video_resolution=720,
+        #     container='mpegts',
+        #     video_codec=VideoCodec.H264,
+        #     audio_codec=AudioCodec.AAC,
+        #     optimized_for_streaming=True,
+        #     audio_channels=2
+        # )
+
+        play_callback = Callback(Play, url=url_update, season=season, episode=episode, session=session)
+
+        media_object = builder.build_media_object(play_callback)
 
         items.append(media_object)
 
@@ -830,13 +813,6 @@ def Playlist(res):
 
     return "\n".join(res)
 
-def ParseNewsTitle(title):
-    return Regex(
-        u'(?P<date>\d{2}\.\d{2}\.\d{4})\sДобавлена'
-        u'\s(?P<episode>\d+)\sсерия\sсериала\s(?P<title>.+)'
-        u'\s(?P<season>\d+)\sсезон'
-    ).match(title).groupdict()
-
 def GetVideoObject(item, episode=0):
 
     if item['session'] == 'external':
@@ -872,3 +848,32 @@ def HandleQueue(title):
             ))
 
     return oc
+
+
+
+
+
+def get_episode_info(title):
+    try:
+        info = ParseNewsTitle(title)
+        title = u'%s - S%dE%d (%s)' % (
+            info['title'],
+            int(info['season']),
+            int(info['episode']),
+            info['date']
+        )
+
+        season = info['season']
+        episode = info['episode']
+    except:
+        season = None
+        episode = None
+
+    return {season: season, episode: episode, title: title}
+
+def ParseNewsTitle(title):
+    return Regex(
+        u'(?P<date>\d{2}\.\d{2}\.\d{4})\sДобавлена'
+        u'\s(?P<episode>\d+)\sсерия\sсериала\s(?P<title>.+)'
+        u'\s(?P<season>\d+)\sсезон'
+    ).match(title).groupdict()

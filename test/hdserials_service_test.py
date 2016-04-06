@@ -19,11 +19,21 @@ class HDSerialsServiceTest(unittest.TestCase):
             self.assertTrue(len(item['title']) > 0)
 
     def test_get_new_series(self):
-        new_series = self.service.get_new_series()
+        items = self.service.get_new_series()
 
-        for serie in new_series:
-            self.assertTrue(len(serie['path']) > 0)
-            self.assertTrue(len(serie['title']) > 0)
+        for item in items:
+            self.assertTrue(len(item['path']) > 0)
+            self.assertTrue(len(item['title']) > 0)
+
+    def test_get_popular(self):
+        items = self.service.get_popular()
+
+        for item in items:
+            self.assertTrue(len(item['path']) > 0)
+            self.assertTrue(len(item['title']) > 0)
+            self.assertTrue(len(item['thumb']) > 0)
+
+        print(json.dumps(items, indent=4))
 
     def test_search(self):
         query = 'castle'

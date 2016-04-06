@@ -9,7 +9,7 @@ service = PlexService()
 
 import main
 
-from updater import Updater
+# from updater import Updater
 
 def Start():
     Plugin.AddViewGroup("InfoList", viewMode="InfoList", mediaType="items")
@@ -24,7 +24,7 @@ def Start():
 
     util.validate_prefs()
 
-@handler(constants.PREFIX, unicode(L('Title')), R(constants.ART), R(constants.ICON))
+@handler(constants.PREFIX, 'HDSerials', R(constants.ART), R(constants.ICON))
 def MainMenu():
     cats = main.GetPage('/').xpath(
         '//div[@id="gkDropMain"]//a[contains(@href, ".html")]'
@@ -35,7 +35,7 @@ def MainMenu():
 
     oc = ObjectContainer(title2=unicode(L('Title')), no_cache=True)
 
-    Updater(constants.PREFIX + '/update', oc)
+    # Updater(constants.PREFIX + '/update', oc)
 
     oc.add(DirectoryObject(key=Callback(main.ShowNews), title=unicode(L('New Series'))))
     oc.add(DirectoryObject(key=Callback(main.ShowPopular), title=unicode(L('Popular'))))
