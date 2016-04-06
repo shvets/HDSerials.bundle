@@ -26,7 +26,7 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import history
-import common
+import constants
 from plex_service import PlexService
 
 service = PlexService()
@@ -34,21 +34,20 @@ service = PlexService()
 import main
 
 from updater import Updater
-Common = SharedCodeService.common
 
 
 def Start():
     HTTP.Headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux i686; rv:32.0) Gecko/20100101 Firefox/32.0'
-    DirectoryObject.art = R(common.ART)
+    DirectoryObject.art = R(constants.ART)
 
 
 ###############################################################################
 # Video
 ###############################################################################
 
-@handler(common.PREFIX, L('Title'), R(common.ART), R(common.ICON))
+@handler(constants.PREFIX, L('Title'), R(constants.ART), R(constants.ICON))
 def MainMenu():
-    cats = Common.GetPage('/').xpath(
+    cats = main.GetPage('/').xpath(
         '//div[@id="gkDropMain"]//a[contains(@href, ".html")]'
     )
 
@@ -60,19 +59,14 @@ def MainMenu():
 
     oc = ObjectContainer(title2=L('Title'), no_cache=True)
 
-    Updater(common.PREFIX+'/update', oc)
+    Updater(constants.PREFIX + '/update', oc)
 
-    oc.add(DirectoryObject(
-        key=Callback(ShowNews),
-        title=u'Новые серии'
-    ))
-    oc.add(DirectoryObject(
-        key=Callback(ShowPopular),
-        title=u'Популярное'
-    ))
+    oc.add(DirectoryObject(key=Callback(ShowNews), title=u'Новые серии'))
+    oc.add(DirectoryObject(key=Callback(ShowPopular), title=u'Популярное'))
 
     for cat in cats:
         title = cat.text_content()
+
         oc.add(DirectoryObject(
             key=Callback(ShowCategory, path=cat.get('href'), title=title),
             title=title
@@ -89,11 +83,12 @@ def MainMenu():
     return oc
 
 
-@route(common.PREFIX + '/news')
+@route(constants.PREFIX + '/news')
 def ShowNews():
-    page = Common.GetPage('/').xpath(
+    page = main.GetPage('/').xpath(
         '//div[@id="gkHeaderheader1"]//div[@class="custom"]/div'
     )
+
     if not page:
         return ContentNotFound()
 
@@ -101,7 +96,7 @@ def ShowNews():
     for item in page:
         title = u'%s' % item.text_content()
         try:
-            info = Common.ParseNewsTitle(title)
+            info = main.ParseNewsTitle(title)
             title = u'%s - S%dE%d (%s)' % (
                 info['title'],
                 int(info['season']),
@@ -126,9 +121,9 @@ def ShowNews():
     return oc
 
 
-@route(common.PREFIX + '/popular')
+@route(constants.PREFIX + '/popular')
 def ShowPopular():
-    page = Common.GetPage('/popular.html').xpath(
+    page = main.GetPage('/popular.html').xpath(
         '//div[contains(@class, "nspArts")]//div[contains(@class, "nspArt")]/div'
     )
     if not page:
@@ -147,9 +142,9 @@ def ShowPopular():
     return oc
 
 
-@route(common.PREFIX + '/category')
+@route(constants.PREFIX + '/category')
 def ShowCategory(path, title, show_items=False):
-    page = Common.GetPage(path)
+    page = main.GetPage(path)
 
     if not page:
         return ContentNotFound()
@@ -159,6 +154,7 @@ def ShowCategory(path, title, show_items=False):
     items = page.xpath(
         '//div[@class="itemList"]//div[@class="catItemBody"]//span[@class="catItemImage"]/a'
     )
+
     cats = None
 
     if not show_items:
@@ -214,17 +210,17 @@ def ShowCategory(path, title, show_items=False):
     return oc
 
 
-@route(common.PREFIX + '/history')
+@route(constants.PREFIX + '/history')
 def History():
-    history = Data.LoadObject(common.KEY_HISTORY)
+    history_object = history.load_history()
 
-    if not history or not len(history):
+    if not history_object or not len(history_object):
         return ContentNotFound()
 
     oc = ObjectContainer(title2=u'История')
 
     for item in sorted(
-        history.values(),
+        history_object.values(),
         key=lambda k: k['time'],
         reverse=True
     ):
@@ -239,10 +235,10 @@ def History():
 
     return oc
 
-@route(common.PREFIX + '/info')
+@route(constants.PREFIX + '/info')
 def ShowInfo(path, **kwargs):
-
     info = ParsePage(path)
+
     if not info:
         return ContentNotFound()
 
@@ -265,14 +261,13 @@ def ShowInfo(path, **kwargs):
         return Seasons(info['path'])
 
     try:
-        vo = Common.GetVideoObject(info)
+        vo = main.GetVideoObject(info)
     except:
         return ContentNotFound()
 
     return ObjectContainer(objects=[vo], content=ContainerContent.Movies)
 
-
-@route(common.PREFIX + '/seasons')
+@route(constants.PREFIX + '/seasons')
 def Seasons(path):
 
     data = ParsePage(path)
@@ -296,10 +291,10 @@ def Seasons(path):
                 path=path,
                 season=season
             ),
-            rating_key=Common.GetEpisodeURL(data['url'], season, 0),
+            rating_key=main.GetEpisodeURL(data['url'], season, 0),
             index=int(season),
             title=data['seasons'][season],
-            source_title=L(Common.TITLE),
+            source_title=L('Title'),
             thumb=data['thumb'],
             # summary=data['summary']
         ))
@@ -307,9 +302,8 @@ def Seasons(path):
     return oc
 
 
-@route(common.PREFIX + '/episodes')
+@route(constants.PREFIX + '/episodes')
 def Episodes(path, season):
-
     Log.Debug('Get episodes for %s' % path)
 
     data = ParsePage(path)
@@ -345,19 +339,11 @@ def Episodes(path, season):
     episodes.sort(key=lambda k: int(k))
 
     for episode in episodes:
-        oc.add(Common.GetVideoObject(data, episode))
+        oc.add(main.GetVideoObject(data, episode))
 
     return oc
 
-
-# def Search(query):
-#     return SearchService.Query(
-#         query=query,
-#         identifier=Plugin.Identifier,
-#         name='HDSerials'
-#     )
-
-@route(common.PREFIX + '/getmeta')
+@route(constants.PREFIX + '/getmeta')
 def GetMeta(path, episode):
     episode = int(episode)
 
@@ -380,17 +366,15 @@ def ContentNotFound():
 
 
 def ParsePage(path):
-
     if service.URL not in path:
         path = service.URL+path
 
-    if Data.Exists(common.KEY_CACHE):
-        ret = Data.LoadObject(common.KEY_CACHE)
-        if ret and 'path' in ret and ret['path'] == path:
-            Log.Debug('Return from cache %s' % path)
-            return ret
+    ret = service.load_cache(path)
 
-    page = Common.GetPage(path).xpath(
+    if ret:
+        return ret
+
+    page = main.GetPage(path).xpath(
         '//div[@id="k2Container"]'
     )[0]
 
@@ -400,7 +384,7 @@ def ParsePage(path):
             '//div[@class="itemFullText"]//iframe[@src]'
         ):
             Log.Debug('Found variant %s', url)
-            variant = Common.GetInfoByURL(url.get('src'))
+            variant = main.GetInfoByURL(url.get('src'))
             if variant:
                 data['variants'][variant['url']] = variant
                 if 'session' not in data:
@@ -508,7 +492,8 @@ def ParsePage(path):
             data['episodes'] = data['variants']
 
     ret.update(data)
-    Data.SaveObject(common.KEY_CACHE, ret)
+
+    service.save_cache(ret)
 
     return ret
 
@@ -529,7 +514,7 @@ def UpdateItemInfo(item, season, episode):
                     return item
                 break
 
-    update = Common.GetInfoByURL(Common.GetEpisodeURL(
+    update = main.GetInfoByURL(main.GetEpisodeURL(
         url,
         season,
         episode
@@ -542,7 +527,7 @@ def UpdateItemInfo(item, season, episode):
     del update['seasons']
     item.update(update)
 
-    Data.SaveObject(common.KEY_CACHE, item)
+    service.save_cache(item)
 
     return item
 

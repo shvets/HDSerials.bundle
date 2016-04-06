@@ -1,10 +1,5 @@
 PREFIX = '/video/hdserials'
 
-KEY_CACHE = 'parse_cache'
-
-KEY_HISTORY = 'history'
-HISTORY_SIZE = 60
-
 ART = 'art-default.jpg'
 ICON = 'icon-default.png'
 SEARCH_ICON = 'icon-search.png'
