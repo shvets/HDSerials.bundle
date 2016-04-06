@@ -19,9 +19,11 @@ class HDSerialsService(MwService):
 
         for link in links:
             path = link.xpath('@href')[0]
-            title = link.text_content()
 
-            list.append({'path': path, 'title': title})
+            if path != '/':
+                title = link.text_content()
+
+                list.append({'path': path, 'title': title})
 
         return list
 
