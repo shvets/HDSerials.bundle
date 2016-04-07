@@ -35,6 +35,34 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         print(json.dumps(items, indent=4))
 
+    def test_get_categories(self):
+        items = self.service.get_categories('/Filmy.html')
+
+        for item in items:
+            self.assertTrue(len(item['path']) > 0)
+            self.assertTrue(len(item['title']) > 0)
+
+        print(json.dumps(items, indent=4))
+
+    def test_get_category_items(self):
+        items = self.service.get_category_items('/Filmy.html')
+
+        for item in items:
+            self.assertTrue(len(item['path']) > 0)
+            self.assertTrue(len(item['title']) > 0)
+            self.assertTrue(len(item['thumb']) > 0)
+
+        print(json.dumps(items, indent=4))
+
+    def test_get_pagination(self):
+        items = self.service.get_pagination('/Filmy.html')
+
+        for item in items:
+            self.assertTrue(len(item['path']) > 0)
+            self.assertTrue(len(item['title']) > 0)
+
+        print(json.dumps(items, indent=4))
+
     def test_search(self):
         query = 'castle'
 

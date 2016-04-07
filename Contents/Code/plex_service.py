@@ -18,6 +18,5 @@ class PlexService(HDSerialsService):
 
                 return ret
 
-
     def save_cache(self, data):
         Data.SaveObject(KEY_CACHE, data)

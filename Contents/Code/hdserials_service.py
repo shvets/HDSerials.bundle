@@ -20,7 +20,7 @@ class HDSerialsService(MwService):
         for link in links:
             path = link.xpath('@href')[0]
 
-            if path != '/':
+            if path != '/' and path != self.URL + '/':
                 title = link.text_content()
 
                 list.append({'path': path, 'title': title})
@@ -57,6 +57,52 @@ class HDSerialsService(MwService):
             thumb = link.find('img').get('src')
 
             list.append({'path': path, 'title': title, 'thumb': thumb})
+
+        return list
+
+    def get_categories(self, path):
+        list = []
+
+        document = self.fetch_document(self.URL + path)
+
+        links = document.xpath('//div[@class="itemListSubCategories"]//div[contains(@class, "subCategory")]/h2/a')
+
+        for link in links:
+            path = link.xpath('@href')[0]
+            title = link.text_content()
+
+            list.append({'path': path, 'title': title})
+
+        return list
+
+    def get_category_items(self, path):
+        list = []
+
+        document = self.fetch_document(self.URL + path)
+
+        links = document.xpath('//div[@class="itemList"]//div[@class="catItemBody"]//span[@class="catItemImage"]/a')
+
+        for link in links:
+            path = link.xpath('@href')[0]
+            title = link.get('title')
+            thumb = link.find('img').get('src')
+
+            list.append({'path': path, 'title': title, 'thumb': thumb})
+
+        return list
+
+    def get_pagination(self, path):
+        list = []
+
+        document = self.fetch_document(self.URL + path)
+
+        links = document.xpath('//div[@class="k2Pagination"]/ul/li[@class="pagination-next"]/a')
+
+        for link in links:
+            path = link.xpath('@href')[0]
+            title = link.text_content()
+
+            list.append({'path': path, 'title': title})
 
         return list
 

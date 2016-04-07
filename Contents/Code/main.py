@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import constants
 import urllib
 from urllib import urlencode
 
+import constants
 from flow_builder import FlowBuilder
 
 builder = FlowBuilder()
@@ -33,36 +33,28 @@ def ShowPopular():
     items = service.get_popular()
 
     for item in items:
+        Log(item)
         title = item['title']
         path = item['path']
         thumb = item['thumb']
 
-        link = item.find('a')
-
-        if link:
+        if path:
             oc.add(DirectoryObject(key=Callback(ShowInfo, path=path), title=title, thumb=thumb))
+
+    # todo: add pagination
 
     return oc
 
 @route(constants.PREFIX + '/category')
-def ShowCategory(path, title, show_items=False):
-    page = GetPage(path)
-
-    if not page:
-        return ContentNotFound()
-
+def ShowCategory(path, title, show_items=False, page=1):
     oc = ObjectContainer(title2=u'%s' % title)
 
-    items = page.xpath(
-        '//div[@class="itemList"]//div[@class="catItemBody"]//span[@class="catItemImage"]/a'
-    )
+    items = service.get_category_items(path)
 
     cats = None
 
     if not show_items:
-        cats = page.xpath(
-            '//div[@class="itemListSubCategories"]//div[contains(@class, "subCategory")]/h2/a'
-        )
+        cats = service.get_categories(path)
 
     if cats:
         # Add all items category
@@ -73,67 +65,66 @@ def ShowCategory(path, title, show_items=False):
             ))
 
         for item in cats:
-            title = u'%s' % item.text_content()
+            title = u'%s' % item['title']
             oc.add(DirectoryObject(
                 title=title,
-                key=Callback(ShowCategory, path=item.get('href'), title=title)
+                key=Callback(ShowCategory, path=item['path'], title=title)
             ))
     elif items:
         # View subcategory with single item
         if not show_items and len(items) == 1:
-            return ShowInfo(items[0].get('href'))
+            return ShowInfo(items[0]['path'])
 
         for item in items:
-            title = u'%s' % item.text_content()
+            title = u'%s' % item['title']
             oc.add(DirectoryObject(
-                title=u'%s' % item.get('title'),
-                key=Callback(ShowInfo, path=item.get('href')),
-                thumb='%s%s' % (
-                    service.URL,
-                    item.find('img').get('src')
-                ),
+                title=u'%s' % item['title'],
+                key=Callback(ShowInfo, path=item['path']),
+                thumb='%s%s' % (service.URL, item['thumb']),
             ))
-        next_page = page.xpath(
-            '//div[@class="k2Pagination"]/ul/li[@class="pagination-next"]/a'
-        )
+
+        # document = service.fetch_document(path)
+        # result["pagination"] = service.extract_pagination_data(document, path)
+        #
+        # pagination.append_controls(oc, response, page=page, callback=ShowCategory, title=title, path=path)
+
+        # next_page = page.xpath(
+        #     '//div[@class="k2Pagination"]/ul/li[@class="pagination-next"]/a'
+        # )
+
+        next_page = service.get_pagination(path)
+
         if next_page:
             oc.add(NextPageObject(
-                title=u'%s' % next_page[0].text_content(),
+                title=u'%s' % next_page[0]['title'],
                 key=Callback(
                     ShowCategory,
-                    path=next_page[0].get('href'),
+                    path=next_page[0]['path'],
                     title=title,
                     show_items=True
                 )
             ))
-    else:
-        return ContentNotFound()
+    # else:
+    #     return ContentNotFound()
 
     return oc
-
 
 @route(constants.PREFIX + '/history')
 def History():
     history_object = history.load_history()
 
-    if not history_object or not len(history_object):
-        return ContentNotFound()
-
     oc = ObjectContainer(title2=u'История')
 
-    for item in sorted(
-        history_object.values(),
-        key=lambda k: k['time'],
-        reverse=True
-    ):
-        oc.add(DirectoryObject(
-            key=Callback(
-                ShowInfo,
-                path=item['path']
-            ),
-            title=u'%s' % item['title'],
-            thumb=item['thumb']
-        ))
+    if history_object:
+        for item in sorted(history_object.values(), key=lambda k: k['time'], reverse=True):
+            oc.add(DirectoryObject(
+                key=Callback(
+                    ShowInfo,
+                    path=item['path']
+                ),
+                title=u'%s' % item['title'],
+                thumb=item['thumb']
+            ))
 
     return oc
 
@@ -869,7 +860,7 @@ def get_episode_info(title):
         season = None
         episode = None
 
-    return {season: season, episode: episode, title: title}
+    return {"season": season, "episode": episode, "title": title}
 
 def ParseNewsTitle(title):
     return Regex(
