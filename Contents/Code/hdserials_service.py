@@ -425,6 +425,12 @@ class HDSerialsService(MwService):
 
         return {'cookie': str(cookie), 'csrf-token': str(csrf_token)}
 
+    def get_episode_url(url, season, episode):
+        if season:
+            return '%s?season=%d&episode=%d' % (url, int(season), int(episode))
+
+        return url
+
     def replace_keys(self, s, keys):
         s = s.replace('\'', '"')
 

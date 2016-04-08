@@ -34,7 +34,6 @@ def ShowPopular():
     items = service.get_popular()
 
     for item in items:
-        Log(item)
         title = item['title']
         path = item['path']
         thumb = item['thumb']
@@ -138,11 +137,10 @@ def ShowInfo(path, **kwargs):
 
 @route(constants.PREFIX + '/seasons')
 def Seasons(path):
-    #data = ParsePage(path)
     data = service.parse_page(path)
 
-    if not data:
-        return util.no_contents()
+    # if not data:
+    #     return util.no_contents()
 
     if len(data['seasons']) == 1:
         return Episodes(path, data['current_season'])
@@ -151,17 +149,15 @@ def Seasons(path):
         title2=data['title'],
         content=ContainerContent.Seasons,
     )
+
     seasons = data['seasons'].keys()
 
     seasons.sort(key=lambda k: int(k))
+
     for season in seasons:
         oc.add(SeasonObject(
-            key=Callback(
-                Episodes,
-                path=path,
-                season=season
-            ),
-            rating_key=GetEpisodeURL(data['url'], season, 0),
+            key=Callback(Episodes, path=path, season=season),
+            rating_key=service.get_episode_url(data['url'], season, 0),
             index=int(season),
             title=data['seasons'][season],
             source_title=unicode(L('Title')),
@@ -176,17 +172,17 @@ def Seasons(path):
 def Episodes(path, season):
     Log.Debug('Get episodes for %s' % path)
 
-    #data = ParsePage(path)
     data = service.parse_page(path)
 
-    if not data:
-        return util.no_contents()
+    # if not data:
+    #     return util.no_contents()
 
     if data['session'] == 'external':
         oc = ObjectContainer(
             title2=u'%s' % data['title'],
             content=ContainerContent.Episodes
         )
+
         for episode in data['episodes']:
             Log.Debug('Try to get metadata from external: %s' % episode)
             try:
@@ -219,7 +215,6 @@ def Episodes(path, season):
 def GetMeta(path, episode):
     episode = int(episode)
 
-    #item = ParsePage(path)
     item = service.parse_page(path)
     if episode and episode != item['current_episode']:
         item = UpdateItemInfo(item, item['current_season'], episode)
@@ -242,7 +237,7 @@ def UpdateItemInfo(item, season, episode):
                     return item
                 break
 
-    update = service.get_info_by_url(GetEpisodeURL(url, season, episode), HTTP.Headers, url)
+    update = service.get_info_by_url(service.get_episode_url(url, season, episode), HTTP.Headers, url)
 
     if not update:
         return None
@@ -332,11 +327,7 @@ def MetadataObjectForURL(url):
 
         title = item['episodes'][str(episode)]
 
-        rating_key = GetEpisodeURL(
-            item['url'],
-            item['current_season'],
-            episode
-        )
+        rating_key = service.get_episode_url(item['url'], item['current_season'], episode)
 
         video = builder.build_metadata_object(media_type='episode', rating_key=rating_key, title=title,
             season=int(item['current_season']), index=int(episode), show=item['title'], **kwargs)
@@ -440,7 +431,7 @@ def Play(session, url, season, episode):
     Log.Debug('Get playlist from %s' % url)
 
     if not session:
-        url_info = service.get_info_by_url(GetEpisodeURL(
+        url_info = service.get_info_by_url(service.get_episode_url(
             url, season, episode
         ), HTTP.Headers, url)
 
@@ -475,11 +466,6 @@ def Play(session, url, season, episode):
     res = Callback(Playlist, res=res)
 
     return IndirectResponse(VideoClipObject, key=HTTPLiveStreamURL(res))
-
-def GetEpisodeURL(url, season, episode):
-    if season:
-        return '%s?season=%d&episode=%d' % (url, int(season), int(episode))
-    return url
 
 @route(constants.PREFIX + '/play_list.m3u8')
 def Playlist(res):
@@ -555,10 +541,6 @@ def HandleQueue(title):
             ))
 
     return oc
-
-
-
-
 
 def get_episode_info(title):
     try:
