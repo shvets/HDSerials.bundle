@@ -26,11 +26,7 @@ def Start():
 
 @handler(constants.PREFIX, 'HDSerials', R(constants.ART), R(constants.ICON))
 def MainMenu():
-    cats = main.GetPage('/').xpath(
-        '//div[@id="gkDropMain"]//a[contains(@href, ".html")]'
-    )
-
-    if not cats:
+    if not service.available():
         return MessageContainer(L('Error'), L('Service not avaliable'))
 
     oc = ObjectContainer(title2=unicode(L('Title')), no_cache=True)

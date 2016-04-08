@@ -17,5 +17,4 @@ def no_contents(name=None):
     if not name:
         name = 'Error'
 
-    return ObjectContainer(header=unicode(L(name)), message=unicode(L('No entries found')))
-
+    return MessageContainer(header=unicode(L(name)), message=unicode(L('No entries found')))

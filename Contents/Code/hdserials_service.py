@@ -10,6 +10,11 @@ from mw_service import MwService
 class HDSerialsService(MwService):
     URL = 'http://www.hdserials.tv'
 
+    def available(self):
+        document = self.fetch_document(self.URL)
+
+        return document.xpath('//div[@id="gkDropMain"]//a[contains(@href, ".html")]')
+
     def get_menu(self):
         list = []
 
@@ -169,16 +174,16 @@ class HDSerialsService(MwService):
         ret['episodes'] = {}
 
         for item in document.xpath('//select[@id="season"]/option'):
-            value = int(item.get('value'))
+            value = item.get('value')
             ret['seasons'][value] = unicode(item.text_content())
             if item.get('selected'):
-                ret['current_season'] = int(value)
+                ret['current_season'] = value
 
         for item in document.xpath('//select[@id="episode"]/option'):
-            value = int(item.get('value'))
+            value = item.get('value')
             ret['episodes'][value] = unicode(item.text_content())
             if item.get('selected'):
-                ret['current_episode'] = int(value)
+                ret['current_episode'] = value
 
         return ret
 
@@ -231,9 +236,149 @@ class HDSerialsService(MwService):
         return result
 
     def parse_page(self, path):
+        if self.URL not in path:
+            path = self.URL + path
+
         http_headers = {'Referer': path}
 
         media_data = self.get_media_data(path)
+
+        #Log(media_data)
+
+        # ret = service.load_cache(path)
+        #
+        # if ret:
+        #     return ret
+
+        # page = GetPage(path).xpath(
+        #     '//div[@id="k2Container"]'
+        # )[0]
+
+        document = self.fetch_document(path)
+        page = document.xpath('//div[@id="k2Container"]')[0]
+
+        data = {'variants': {}}
+        try:
+            for url in page.xpath('//div[@class="itemFullText"]//iframe[@src]'):
+                #Log.Debug('Found variant %s', url)
+                variant = self.get_info_by_url(url.get('src'), http_headers)
+                if variant:
+                    data['variants'][variant['url']] = variant
+                    if 'session' not in data:
+                        data.update(variant)
+                        if 'seasons' in data:
+                            data['seasons'] = variant['seasons'].copy()
+                    else:
+                        if 'seasons' in variant:
+                            data['seasons'].update(variant['seasons'])
+
+            if len(data['variants']) == 0:
+                return None
+        except:
+            return None
+
+        ret = {
+            'path': path,
+            'rating': 0.00,
+            'thumb': '%s%s' % (
+                self.URL,
+                page.xpath(
+                    '//div[@class="itemImageBlock"]//a'
+                )[0].get('href')
+            ),
+        }
+
+        title = [
+            l.strip() for l in page.xpath(
+                '//h2[@class="itemTitle"]'
+            )[0].text_content().split('/')
+            ]
+
+        ret['original_title'] = title.pop() if len(title) > 1 else None
+        ret['title'] = ' / '.join(title)
+
+        meta = page.xpath(
+            '//div[@class="itemFullText"]//text() ' +
+            '| //div[@class="itemFullText"]//span ' +
+            '| //div[@class="itemFullText"]//strong ' +
+            '| //div[@class="itemFullText"]//p[@style="text-align: center;"]'
+        )
+
+        tmap = {
+            u'Описание': 'summary',
+            u'Год выпуска': 'year',
+            u'Страна': 'countries',
+            u'Жанр': 'genres',
+            u'Продолжительность': 'duration',
+            u'Режиссер': 'directors',
+            u'В ролях': 'roles',
+        }
+
+        current = None
+        variants_names = []
+        for desc in meta:
+            if not isinstance(desc, basestring):
+                if desc.tag == 'p' and u'Перевод' in desc.text_content():
+                    variants_names.append(desc.text_content())
+                    current = None
+                continue
+            if not desc:
+                continue
+
+            if desc in tmap:
+                current = desc
+            elif current:
+                if desc[:1] == ':':
+                    desc = desc[2:]
+
+                if tmap[current] in data:
+                    data[tmap[current]] = data[tmap[current]] + ' ' + unicode(desc)
+                else:
+                    data[tmap[current]] = unicode(desc)
+
+        for current in ('countries', 'genres', 'directors', 'roles'):
+            if current in data:
+                data[current] = [l.strip() for l in data[current].split(',')]
+
+        # TODO
+        data['duration'] = None
+        # data['duration'] = Datetime.MillisecondsFromString(data['duration'])
+
+        data['rating'] = float(Regex('width\s?:\s?([\d\.]+)').search(
+            page.xpath(
+                '//div[@class="itemRatingBlock"]//li[@class="itemCurrentRating"]'
+            )[0].get('style')
+        ).group(1)) / 10
+
+        if 'year' in data:
+            if '-' in data['year']:
+                data['year'] = data['year'].split('-')[0]
+
+            data['year'] = int(data['year'])
+
+        for k in data['variants']:
+            data['variants'][k]['variant_title'] = unicode(
+                variants_names.pop(0)
+            ) if variants_names else ''
+
+        if data['session'] == 'external':
+            if len(data['variants']) > 1:
+                data['seasons'] = {'1': ret['title']}
+                data['current_season'] = 1
+                data['episodes'] = data['variants']
+
+        ret.update(data)
+
+        # service.save_cache(ret)
+
+        return ret
+
+    def parse_page2(self, path):
+        url = self.URL + path
+
+        http_headers = {'Referer': url}
+
+        media_data = self.get_media_data(url)
 
         data = {'variants': {}}
 
@@ -258,7 +403,7 @@ class HDSerialsService(MwService):
             return None
 
         ret = {
-            'path': path,
+            'path': url,
             'rating': 0.00,
             'thumb': media_data['thumb']
         }
@@ -360,7 +505,8 @@ class HDSerialsService(MwService):
             'headers': {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Referer': url,
-                'Content-Data': self.get_content_data(content)
+                'Content-Data': self.get_content_data(content),
+                'Cookie': None
                 # 'Cookie': self.get_cookies(response)
             },
         }
@@ -368,7 +514,7 @@ class HDSerialsService(MwService):
         ret = {}
         ret['url'] = parent if parent else url
 
-        #if ret['session']['values']['content_type'] == 'serial':
+        # if ret['session']['values']['content_type'] == 'serial':
         if session_data['data']['content_type'] == 'serial':
             # response = self.http_request(url)
             # document = self.to_document(response.read())

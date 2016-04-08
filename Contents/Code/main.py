@@ -4,6 +4,7 @@ import urllib
 from urllib import urlencode
 
 import constants
+import util
 from flow_builder import FlowBuilder
 
 builder = FlowBuilder()
@@ -97,43 +98,18 @@ def ShowCategory(path, title, show_items=False, page=1):
         if next_page:
             oc.add(NextPageObject(
                 title=u'%s' % next_page[0]['title'],
-                key=Callback(
-                    ShowCategory,
-                    path=next_page[0]['path'],
-                    title=title,
-                    show_items=True
-                )
-            ))
-    # else:
-    #     return ContentNotFound()
-
-    return oc
-
-@route(constants.PREFIX + '/history')
-def History():
-    history_object = history.load_history()
-
-    oc = ObjectContainer(title2=u'История')
-
-    if history_object:
-        for item in sorted(history_object.values(), key=lambda k: k['time'], reverse=True):
-            oc.add(DirectoryObject(
-                key=Callback(
-                    ShowInfo,
-                    path=item['path']
-                ),
-                title=u'%s' % item['title'],
-                thumb=item['thumb']
+                key=Callback(ShowCategory, path=next_page[0]['path'], title=title, show_items=True)
             ))
 
     return oc
 
 @route(constants.PREFIX + '/info')
 def ShowInfo(path, **kwargs):
-    info = ParsePage(path)
+    #info = ParsePage(path)
+    info = service.parse_page(path)
 
     if not info:
-        return ContentNotFound()
+        return util.no_contents()
 
     if 'season' in kwargs:
         info['season'] = kwargs['season']
@@ -156,16 +132,17 @@ def ShowInfo(path, **kwargs):
     try:
         vo = GetVideoObject(info)
     except:
-        return ContentNotFound()
+        return util.no_contents()
 
     return ObjectContainer(objects=[vo], content=ContainerContent.Movies)
 
 @route(constants.PREFIX + '/seasons')
 def Seasons(path):
+    #data = ParsePage(path)
+    data = service.parse_page(path)
 
-    data = ParsePage(path)
     if not data:
-        return ContentNotFound()
+        return util.no_contents()
 
     if len(data['seasons']) == 1:
         return Episodes(path, data['current_season'])
@@ -199,9 +176,11 @@ def Seasons(path):
 def Episodes(path, season):
     Log.Debug('Get episodes for %s' % path)
 
-    data = ParsePage(path)
+    #data = ParsePage(path)
+    data = service.parse_page(path)
+
     if not data:
-        return ContentNotFound()
+        return util.no_contents()
 
     if data['session'] == 'external':
         oc = ObjectContainer(
@@ -216,12 +195,12 @@ def Episodes(path, season):
                 ))
             except:
                 continue
-        return oc if len(oc) else ContentNotFound()
+        return oc if len(oc) else util.no_contents()
 
     if season != data['current_season']:
         data = UpdateItemInfo(data, season, 1)
         if not data:
-            return ContentNotFound()
+            return util.no_contents()
 
     oc = ObjectContainer(
         title2=u'%s / %s' % (data['title'], data['seasons'][season]),
@@ -240,7 +219,8 @@ def Episodes(path, season):
 def GetMeta(path, episode):
     episode = int(episode)
 
-    item = ParsePage(path)
+    #item = ParsePage(path)
+    item = service.parse_page(path)
     if episode and episode != item['current_episode']:
         item = UpdateItemInfo(item, item['current_season'], episode)
 
@@ -251,144 +231,140 @@ def GetMeta(path, episode):
 # Common
 ###############################################################################
 
-def ContentNotFound():
-    return MessageContainer(
-        L('Ошибка'),
-        L('Контент не найден')
-    )
-
-
-def ParsePage(path):
-    if service.URL not in path:
-        path = service.URL+path
-
-    ret = service.load_cache(path)
-
-    if ret:
-        return ret
-
-    page = GetPage(path).xpath(
-        '//div[@id="k2Container"]'
-    )[0]
-
-    data = {'variants': {}}
-    try:
-        for url in page.xpath(
-            '//div[@class="itemFullText"]//iframe[@src]'
-        ):
-            Log.Debug('Found variant %s', url)
-            variant = GetInfoByURL(url.get('src'))
-            if variant:
-                data['variants'][variant['url']] = variant
-                if 'session' not in data:
-                    data.update(variant)
-                    if 'seasons' in data:
-                        data['seasons'] = variant['seasons'].copy()
-                else:
-                    if 'seasons' in variant:
-                        data['seasons'].update(variant['seasons'])
-
-
-        if len(data['variants']) == 0:
-            return None
-    except:
-        return None
-
-    ret = {
-        'path': path,
-        'rating': 0.00,
-        'thumb': '%s%s' % (
-            service.URL,
-            page.xpath(
-                '//div[@class="itemImageBlock"]//a'
-            )[0].get('href')
-        ),
-    }
-
-    title = [
-        l.strip() for l in page.xpath(
-            '//h2[@class="itemTitle"]'
-        )[0].text_content().split('/')
-    ]
-
-    ret['original_title'] = title.pop() if len(title) > 1 else None
-    ret['title'] = ' / '.join(title)
-
-    meta = page.xpath(
-        '//div[@class="itemFullText"]//text() ' +
-        '| //div[@class="itemFullText"]//span ' +
-        '| //div[@class="itemFullText"]//strong ' +
-        '| //div[@class="itemFullText"]//p[@style="text-align: center;"]'
-    )
-
-    tmap = {
-        u'Описание': 'summary',
-        u'Год выпуска': 'year',
-        u'Страна': 'countries',
-        u'Жанр': 'genres',
-        u'Продолжительность': 'duration',
-        u'Режиссер': 'directors',
-        u'В ролях': 'roles',
-    }
-
-    current = None
-    variants_names = []
-    for desc in meta:
-        if not isinstance(desc, basestring):
-            if desc.tag == 'p' and u'Перевод' in desc.text_content():
-                variants_names.append(desc.text_content())
-                current = None
-            continue
-        if not desc:
-            continue
-
-        if desc in tmap:
-            current = desc
-        elif current:
-            if desc[:1] == ':':
-                desc = desc[2:]
-
-            if tmap[current] in data:
-                data[tmap[current]] = data[tmap[current]]+' '+unicode(desc)
-            else:
-                data[tmap[current]] = unicode(desc)
-
-    for current in ('countries', 'genres', 'directors', 'roles'):
-        if current in data:
-            data[current] = [l.strip() for l in data[current].split(',')]
-
-    # TODO
-    data['duration'] = None
-    # data['duration'] = Datetime.MillisecondsFromString(data['duration'])
-
-    data['rating'] = float(Regex('width\s?:\s?([\d\.]+)').search(
-        page.xpath(
-            '//div[@class="itemRatingBlock"]//li[@class="itemCurrentRating"]'
-        )[0].get('style')
-    ).group(1)) / 10
-
-    if 'year' in data:
-        if '-' in data['year']:
-            data['year'] = data['year'].split('-')[0]
-
-        data['year'] = int(data['year'])
-
-    for k in data['variants']:
-        data['variants'][k]['variant_title'] = unicode(
-            variants_names.pop(0)
-        ) if variants_names else ''
-
-    if data['session'] == 'external':
-        if len(data['variants']) > 1:
-            data['seasons'] = {'1': ret['title']}
-            data['current_season'] = 1
-            data['episodes'] = data['variants']
-
-    ret.update(data)
-
-    service.save_cache(ret)
-
-    return ret
+# def ParsePage(path):
+#     if service.URL not in path:
+#         path = service.URL+path
+#
+#     # ret = service.load_cache(path)
+#     #
+#     # if ret:
+#     #     return ret
+#
+#     # page = GetPage(path).xpath(
+#     #     '//div[@id="k2Container"]'
+#     # )[0]
+#
+#     document = service.fetch_document(path)
+#     page = document.xpath('//div[@id="k2Container"]')[0]
+#
+#     data = {'variants': {}}
+#     try:
+#         for url in page.xpath(
+#             '//div[@class="itemFullText"]//iframe[@src]'
+#         ):
+#             Log.Debug('Found variant %s', url)
+#             variant = GetInfoByURL(url.get('src'))
+#             if variant:
+#                 data['variants'][variant['url']] = variant
+#                 if 'session' not in data:
+#                     data.update(variant)
+#                     if 'seasons' in data:
+#                         data['seasons'] = variant['seasons'].copy()
+#                 else:
+#                     if 'seasons' in variant:
+#                         data['seasons'].update(variant['seasons'])
+#
+#
+#         if len(data['variants']) == 0:
+#             return None
+#     except:
+#         return None
+#
+#     ret = {
+#         'path': path,
+#         'rating': 0.00,
+#         'thumb': '%s%s' % (
+#             service.URL,
+#             page.xpath(
+#                 '//div[@class="itemImageBlock"]//a'
+#             )[0].get('href')
+#         ),
+#     }
+#
+#     title = [
+#         l.strip() for l in page.xpath(
+#             '//h2[@class="itemTitle"]'
+#         )[0].text_content().split('/')
+#     ]
+#
+#     ret['original_title'] = title.pop() if len(title) > 1 else None
+#     ret['title'] = ' / '.join(title)
+#
+#     meta = page.xpath(
+#         '//div[@class="itemFullText"]//text() ' +
+#         '| //div[@class="itemFullText"]//span ' +
+#         '| //div[@class="itemFullText"]//strong ' +
+#         '| //div[@class="itemFullText"]//p[@style="text-align: center;"]'
+#     )
+#
+#     tmap = {
+#         u'Описание': 'summary',
+#         u'Год выпуска': 'year',
+#         u'Страна': 'countries',
+#         u'Жанр': 'genres',
+#         u'Продолжительность': 'duration',
+#         u'Режиссер': 'directors',
+#         u'В ролях': 'roles',
+#     }
+#
+#     current = None
+#     variants_names = []
+#     for desc in meta:
+#         if not isinstance(desc, basestring):
+#             if desc.tag == 'p' and u'Перевод' in desc.text_content():
+#                 variants_names.append(desc.text_content())
+#                 current = None
+#             continue
+#         if not desc:
+#             continue
+#
+#         if desc in tmap:
+#             current = desc
+#         elif current:
+#             if desc[:1] == ':':
+#                 desc = desc[2:]
+#
+#             if tmap[current] in data:
+#                 data[tmap[current]] = data[tmap[current]]+' '+unicode(desc)
+#             else:
+#                 data[tmap[current]] = unicode(desc)
+#
+#     for current in ('countries', 'genres', 'directors', 'roles'):
+#         if current in data:
+#             data[current] = [l.strip() for l in data[current].split(',')]
+#
+#     # TODO
+#     data['duration'] = None
+#     # data['duration'] = Datetime.MillisecondsFromString(data['duration'])
+#
+#     data['rating'] = float(Regex('width\s?:\s?([\d\.]+)').search(
+#         page.xpath(
+#             '//div[@class="itemRatingBlock"]//li[@class="itemCurrentRating"]'
+#         )[0].get('style')
+#     ).group(1)) / 10
+#
+#     if 'year' in data:
+#         if '-' in data['year']:
+#             data['year'] = data['year'].split('-')[0]
+#
+#         data['year'] = int(data['year'])
+#
+#     for k in data['variants']:
+#         data['variants'][k]['variant_title'] = unicode(
+#             variants_names.pop(0)
+#         ) if variants_names else ''
+#
+#     if data['session'] == 'external':
+#         if len(data['variants']) > 1:
+#             data['seasons'] = {'1': ret['title']}
+#             data['current_season'] = 1
+#             data['episodes'] = data['variants']
+#
+#     ret.update(data)
+#
+#     # service.save_cache(ret)
+#
+#     return ret
 
 
 def UpdateItemInfo(item, season, episode):
@@ -407,11 +383,8 @@ def UpdateItemInfo(item, season, episode):
                     return item
                 break
 
-    update = GetInfoByURL(GetEpisodeURL(
-        url,
-        season,
-        episode
-    ), url)
+    update = service.get_info_by_url(GetEpisodeURL(url, season, episode), HTTP.Headers, url)
+
     if not update:
         return None
 
@@ -505,18 +478,7 @@ def MetadataObjectForURL(url):
             item['current_season'],
             episode
         )
-        # video = EpisodeObject(
-        #     rating_key=GetEpisodeURL(
-        #         item['url'],
-        #         item['current_season'],
-        #         episode
-        #     ),
-        #     title=title,
-        #     season=int(item['current_season']),
-        #     index=int(episode),
-        #     show=item['title'],
-        #     **kwargs
-        # )
+
         video = builder.build_metadata_object(media_type='episode', rating_key=rating_key, title=title,
             season=int(item['current_season']), index=int(episode), show=item['title'], **kwargs)
     else:
@@ -526,11 +488,6 @@ def MetadataObjectForURL(url):
 
         title = item['title']
 
-        # video = MovieObject(
-        #     title=title,
-        #     rating_key=item['url'],
-        #     **kwargs
-        # )
         video = builder.build_metadata_object(media_type='movie', title=title, rating_key=item['url'], **kwargs)
 
     video.key = Callback(HandleMovie, title=title, url=url)
@@ -561,18 +518,6 @@ def MediaObjectsForURL(url):
             if url.episode:
                 season = item['current_season']
                 episode = url.episode
-
-        # media_object = MediaObject(
-        #     parts=[PartObject(
-        #         key=Callback(Play, url=url_update, season=season, episode=episode, session=session),
-        #     )],
-        #     video_resolution=720,
-        #     container='mpegts',
-        #     video_codec=VideoCodec.H264,
-        #     audio_codec=AudioCodec.AAC,
-        #     optimized_for_streaming=True,
-        #     audio_channels=2
-        # )
 
         play_callback = Callback(Play, url=url_update, season=season, episode=episode, session=session)
 
@@ -636,9 +581,9 @@ def Play(session, url, season, episode):
     Log.Debug('Get playlist from %s' % url)
 
     if not session:
-        url_info = GetInfoByURL(GetEpisodeURL(
+        url_info = service.get_info_by_url(GetEpisodeURL(
             url, season, episode
-        ), url)
+        ), HTTP.Headers, url)
 
         if not url_info:
             raise Ex.MediaNotAvailable
@@ -649,7 +594,7 @@ def Play(session, url, season, episode):
 
     res = JSON.ObjectFromURL(
         url='http://moonwalk.cc/sessions/create_session',
-        values=session['values'],
+        values=session['data'],
         headers=session['headers'],
         method='POST',
         cacheTime=0
@@ -677,112 +622,6 @@ def GetEpisodeURL(url, season, episode):
         return '%s?season=%d&episode=%d' % (url, int(season), int(episode))
     return url
 
-
-def GetInfoByURL(url, parent=None):
-    if not Regex('http://moonwalk\.cc/').match(url):
-        return {
-            'url': url.replace('vkontakte.ru', 'vk.com'),
-            'session': 'external',
-        }
-
-    headers = {}
-    if parent:
-        headers['Referer'] = parent
-        if 'Referer' in HTTP.Headers:
-            url = '%s&%s' % (
-                url,
-                urllib.urlencode({'referer': HTTP.Headers['Referer']})
-            )
-
-    elif 'Referer' in HTTP.Headers:
-        headers['Referer'] = HTTP.Headers['Referer']
-
-    try:
-        page = HTTP.Request(
-            url,
-            cacheTime=300,
-            headers=headers
-        ).content
-    except Ex.HTTPError, e:
-        Log.Debug(e.hdrs)
-        Log(e.msg)
-        return None
-
-    data = Regex(
-        ('\$\.post\(\'/sessions\/create_session\', {((?:.|\n)+)}\)\.success')
-    ).search(page, Regex.MULTILINE)
-
-    if not data:
-        return None
-
-    data = data.group(1).replace('condition_detected ? 1 : ', '')
-
-    ret = {
-        'url': parent if parent else url,
-        'session': {
-            'values': JSON.ObjectFromString('{%s}' % data),
-            'headers': {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Referer': url,
-                'Cookie': HTTP.CookiesForURL(url)
-            },
-        }
-    }
-
-    data = Regex(
-        ('xhr.setRequestHeader\([\'"](.+)[\'"],[ ]*[\'"](.+)[\'"]\)')
-    ).findall(page, Regex.MULTILINE)
-
-    if data:
-        for k, v in data:
-            ret['session']['headers'][k] = v
-
-    data = Regex(
-        ('setRequestHeader\|([^|]+)')
-    ).search(page, Regex.MULTILINE)
-
-    if data:
-        ret['session']['headers']['Content-Data'] = String.Base64Encode(
-            data.group(1)
-        )
-
-    if ret['session']['values']['content_type'] == 'serial':
-        res = HTML.ElementFromString(page)
-        ret['seasons'] = {}
-        ret['episodes'] = {}
-        for item in res.xpath('//select[@id="season"]/option'):
-            value = item.get('value')
-            ret['seasons'][value] = unicode(item.text_content())
-            if item.get('selected'):
-                ret['current_season'] = value
-
-        for item in res.xpath('//select[@id="episode"]/option'):
-            value = item.get('value')
-            ret['episodes'][value] = unicode(item.text_content())
-            if item.get('selected'):
-                ret['current_episode'] = value
-
-    return ret
-
-def GetPage(uri, cacheTime=CACHE_1HOUR):
-    try:
-        if service.URL not in uri:
-            uri = service.URL+uri
-
-        res = HTML.ElementFromString(Regex(
-            '<style=[^>]+>([^:]+)',
-            Regex.MULTILINE
-        ).sub(
-            r'<span>\1</span>',
-            HTTP.Request(uri, cacheTime=cacheTime).content
-        ))
-
-        HTTP.Headers['Referer'] = uri
-    except:
-        res = HTML.Element('error')
-
-    return res
-
 @route(constants.PREFIX + '/play_list.m3u8')
 def Playlist(res):
     # Some players does not support gziped response
@@ -805,7 +644,6 @@ def Playlist(res):
     return "\n".join(res)
 
 def GetVideoObject(item, episode=0):
-
     if item['session'] == 'external':
         url = item['url']
     else:
@@ -813,6 +651,25 @@ def GetVideoObject(item, episode=0):
         url.update(item, episode)
 
     return MetadataObjectForURL(url)
+
+@route(constants.PREFIX + '/history')
+def History():
+    history_object = history.load_history()
+
+    oc = ObjectContainer(title2=u'История')
+
+    if history_object:
+        for item in sorted(history_object.values(), key=lambda k: k['time'], reverse=True):
+            oc.add(DirectoryObject(
+                key=Callback(
+                    ShowInfo,
+                    path=item['path']
+                ),
+                title=u'%s' % item['title'],
+                thumb=item['thumb']
+            ))
+
+    return oc
 
 @route(constants.PREFIX + '/queue')
 def HandleQueue(title):
