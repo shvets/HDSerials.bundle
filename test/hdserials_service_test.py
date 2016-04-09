@@ -127,12 +127,21 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         print(json.dumps(result, indent=4))
 
-    def test_retrieve_url(self):
+    def test_retrieve_urls(self):
         new_series = self.service.get_new_series()
 
         path = new_series[0]['path']
 
         urls = self.service.retrieve_urls(path)
+
+        print(json.dumps(urls, indent=4))
+
+    def test_retrieve_episode_urls(self):
+        new_series = self.service.get_new_series()
+
+        path = new_series[0]['path']
+
+        urls = self.service.retrieve_urls(path, season=1, episode=2)
 
         print(json.dumps(urls, indent=4))
 
@@ -151,7 +160,9 @@ class HDSerialsServiceTest(unittest.TestCase):
         new_series = self.service.get_new_series()
         path = new_series[0]['path']
 
-        media_data = self.service.get_media_data(path)
+        document = self.service.fetch_document(path)
+
+        media_data = self.service.get_media_data(document)
 
         print media_data
 
@@ -177,6 +188,17 @@ class HDSerialsServiceTest(unittest.TestCase):
             print value
             # self.assertTrue(len(item['path']) > 0)
             # self.assertTrue(len(item['title']) > 0)
+
+    def test_get_episode_info(self):
+        new_series = self.service.get_new_series()
+
+        text = new_series[0]['text']
+
+        print text
+
+        result = self.service.get_episode_info(text)
+
+        print(json.dumps(result, indent=4))
 
     def json_test(self):
         l = '''

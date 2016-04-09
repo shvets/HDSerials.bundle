@@ -1,29 +1,32 @@
 # -*- coding: utf-8 -*-
 
-import urllib
-import json
-
 import constants
 import util
 import pagination
+from lxml.etree import tostring
 from flow_builder import FlowBuilder
 
 builder = FlowBuilder()
 
 @route(constants.PREFIX + '/new_series')
 def HandleNewSeries():
-    oc = ObjectContainer(title2=u'Новые серии')
+    oc = ObjectContainer(title2=unicode(L("New Series")))
 
     new_series = service.get_new_series()
 
     for item in new_series:
         path = item['path']
+        title = item['title']
+        text = item['text']
 
-        info = get_episode_info(item['title'])
+        info = service.get_episode_info(text)
+
+        season = info['season']
+        episode = info['episode']
 
         oc.add(DirectoryObject(
-            key=Callback(HandleMovies, path=path, season=info['season'], episode=info['episode']),
-            title=item['title']
+            key=Callback(HandleContainer, path=path, title=title, name=title, season=season, episode=episode),
+            title=title + ", " + str(episode) + " " + unicode(L("episode"))
         ))
 
     return oc
@@ -41,8 +44,11 @@ def HandlePopular(page=1):
         path = item['path']
         thumb = item['thumb']
 
-        if path:
-            oc.add(DirectoryObject(key=Callback(HandleMovies, path=path), title=title, thumb=thumb))
+        oc.add(DirectoryObject(
+            key=Callback(HandleContainer, path=path, title=title, name=title, thumb=thumb),
+            title=unicode(title),
+            thumb=thumb
+        ))
 
     pagination.append_controls(oc, response, page=int(page), callback=HandlePopular)
 
@@ -59,330 +65,265 @@ def HandleCategories():
         path = item['path']
 
         oc.add(DirectoryObject(
-            key=Callback(HandleCategory, path=path, title=title),
-            title=title
+            key=Callback(HandleCategory, category_path=path, title=title),
+            title=unicode(title)
         ))
 
     return oc
 
 @route(constants.PREFIX + '/category')
-def HandleCategory(path, title):
-    oc = ObjectContainer(title2=u'%s' % title)
+def HandleCategory(category_path, title):
+    oc = ObjectContainer(title2=unicode(title))
 
-    cats = service.get_subcategories(path)
+    # Add all items category
+    items = service.get_category_items(category_path)
 
-    if cats:
-        # Add all items category
-        items = service.get_category_items(path)
+    if len(items) > 0:
+        all_title = unicode(L('All')) + ' ' + unicode(title.lower())
 
-        if items:
-            oc.add(DirectoryObject(
-                title=u'Все %s' % title.lower(),
-                key=Callback(HandleCategoryItems, path=path, title=title)
-            ))
+        oc.add(DirectoryObject(
+            key=Callback(HandleCategoryItems, category_path=category_path, title=all_title),
+            title=unicode(all_title)
+        ))
 
-        for item in cats:
-            title = u'%s' % item['title']
-            oc.add(DirectoryObject(
-                title=title,
-                key=Callback(HandleCategoryItems, path=item['path'], title=title)
-            ))
+    cats = service.get_subcategories(category_path)
 
-    return oc
+    for item in cats:
+        title = item['title']
+        path = item['path']
 
-@route(constants.PREFIX + '/category_items')
-def HandleCategoryItems(path, title, page=1):
-    oc = ObjectContainer(title2=u'%s' % title)
-
-    response = service.get_category_items(path, page)
-
-    if response['movies']:
-        for item in response['movies']:
-            title = u'%s' % item['title']
-            oc.add(DirectoryObject(
-                title=u'%s' % item['title'],
-                key=Callback(HandleMovies, path=item['path']),
-                thumb='%s%s' % (service.URL, item['thumb']),
-            ))
-
-        pagination.append_controls(oc, response, page=page, callback=HandleCategoryItems, title=title, path=path)
-
-    return oc
-
-@route(constants.PREFIX + '/movies')
-def HandleMovies(path, **kwargs):
-    info = service.parse_page(path)
-
-    if not info:
-        return util.no_contents()
-
-    # if 'season' in kwargs:
-    #     info['season'] = kwargs['season']
-    # else:
-    #     info['season'] = None
-    #
-    # if 'episode' in kwargs:
-    #     info['episode'] = kwargs['episode']
-    # else:
-    #     info['episode'] = None
-
-    history.push_to_history(info)
-
-    if 'seasons' in info:
-        if 'season' in kwargs and kwargs['season'] in info['seasons']:
-            return HandleEpisodes(info['path'], kwargs['season'])
-        else:
-          return HandleSeasons(info['path'])
-    else:
-        try:
-            vo = GetVideoObject(info)
-
-            return ObjectContainer(objects=[vo], content=ContainerContent.Movies)
-        except:
-            return util.no_contents()
-
-@route(constants.PREFIX + '/seasons')
-def HandleSeasons(path):
-    data = service.parse_page(path)
-
-    # if not data:
-    #     return util.no_contents()
-
-    if len(data['seasons']) == 1:
-        return HandleEpisodes(path, data['current_season'])
-
-    oc = ObjectContainer(
-        title2=data['title'],
-        content=ContainerContent.Seasons,
-    )
-
-    seasons = data['seasons'].keys()
-
-    seasons.sort(key=lambda k: int(k))
-
-    for season in seasons:
-        oc.add(SeasonObject(
-            key=Callback(HandleEpisodes, path=path, season=season),
-            rating_key=service.get_episode_url(data['url'], season, 0),
-            index=int(season),
-            title=data['seasons'][season],
-            source_title=unicode(L('Title')),
-            thumb=data['thumb'],
-            # summary=data['summary']
+        oc.add(DirectoryObject(
+            key=Callback(HandleCategoryItems, category_path=path, title=title),
+            title=unicode(title)
         ))
 
     return oc
 
-@route(constants.PREFIX + '/episodes')
-def HandleEpisodes(path, season):
-    Log.Debug('Get episodes for %s' % path)
+@route(constants.PREFIX + '/category_items')
+def HandleCategoryItems(category_path, title, page=1):
+    oc = ObjectContainer(title2=unicode(title))
 
+    response = service.get_category_items(category_path, page)
+
+    if response['movies']:
+        for item in response['movies']:
+            title = item['title']
+            path = item['path']
+            thumb = service.get_thumb(item['thumb'])
+
+            oc.add(DirectoryObject(
+                key=Callback(HandleContainer, path=path, title=title, name=title, thumb=thumb),
+                title=unicode(title),
+                thumb=thumb
+            ))
+
+        pagination.append_controls(oc, response, page=page, callback=HandleCategoryItems, title=title, category_path=category_path)
+
+    return oc
+
+@route(constants.PREFIX + '/container')
+def HandleContainer(path, title, name, thumb=None, season=None, episode=None, **kwargs):
+    if path.find(service.URL) < 0:
+        path = service.URL + path
+
+    document = service.get_movie_document(path)
+
+    content = tostring(document.xpath('body')[0])
+
+    data = service.get_session_data(content)
+
+    if data and data['content_type'] == 'serial':
+        oc = ObjectContainer(title2=unicode(title))
+
+        if season:
+            serial_info = service.get_serial_info(document)
+
+            if episode:
+                episode_name = serial_info['episodes'][episode]
+
+                oc.add(DirectoryObject(
+                    key=Callback(HandleMovie, path=path, title=episode_name, name=episode_name, thumb=thumb),
+                    title=unicode(episode_name)
+                ))
+
+            season_name = serial_info['seasons'][season]
+
+            oc.add(DirectoryObject(
+                key=Callback(HandleEpisodes, path=path, title=season_name, name=season_name,
+                             thumb=thumb, season=season),
+                title=unicode(season_name)
+            ))
+
+        serial_info = service.get_serial_info(document)
+
+        for s in sorted(serial_info['seasons'].keys()):
+            if s != season:
+                season_name = serial_info['seasons'][s]
+
+                oc.add(DirectoryObject(
+                    key=Callback(HandleEpisodes, path=path, title=name, name=season_name, thumb=thumb, season=s),
+                    title=unicode(season_name)
+                ))
+
+
+        # service.queue.append_queue_controls(oc,
+        #                                     {
+        #                                         "path": path,
+        #                                         "title": title,
+        #                                         "name": title,
+        #                                         "thumb": thumb
+        #                                     },
+        #                                     add_bookmark_handler=HandleAddBookmark,
+        #                                     remove_bookmark_handler=HandleRemoveBookmark
+        #                                     )
+
+        return oc
+
+    else:
+        return HandleMovie(path=path, title=title, name=name, thumb=thumb)
+
+# @route(constants.PREFIX + '/seasons')
+# def HandleSeasons(path):
+#     data = service.parse_page(path)
+#
+#     if not data:
+#         return util.no_contents()
+#
+#     if len(data['seasons']) == 1:
+#         return HandleEpisodes(path, data['current_season'])
+#
+#     oc = ObjectContainer(
+#         title2=data['title'],
+#         content=ContainerContent.Seasons,
+#     )
+#
+#     seasons = data['seasons'].keys()
+#
+#     seasons.sort(key=lambda k: int(k))
+#
+#     for season in seasons:
+#         title = data['seasons'][season]
+#         source_title = unicode(L('Title'))
+#         rating_key = service.get_episode_url(data['url'], season, 0)
+#         thumb = service.get_thumb(data['thumb'])
+#
+#         oc.add(SeasonObject(
+#             key=Callback(HandleEpisodes, path=path, season=season),
+#             rating_key=rating_key,
+#             index=int(season),
+#             title=unicode(title),
+#             source_title=source_title,
+#             thumb=thumb,
+#             # summary=data['summary']
+#         ))
+#
+#     return oc
+
+@route(constants.PREFIX + '/episodes')
+def HandleEpisodes(path, title, name, thumb, season, container=False):
     data = service.parse_page(path)
 
-    # if not data:
-    #     return util.no_contents()
-
-    if data['session'] == 'external':
-        oc = ObjectContainer(
-            title2=u'%s' % data['title'],
-            content=ContainerContent.Episodes
-        )
-
-        for episode in data['episodes']:
-            Log.Debug('Try to get metadata from external: %s' % episode)
-            try:
-                url = data['episodes'][episode]['url']
-
-                oc.add(MetadataObjectForURL(url))
-            except:
-                continue
-        return oc if len(oc) else util.no_contents()
-
-    if season != data['current_season']:
-        data = UpdateItemInfo(data, season, 1)
-        if not data:
-            return util.no_contents()
+    if not data:
+        return util.no_contents()
 
     oc = ObjectContainer(
-        title2=u'%s / %s' % (data['title'], data['seasons'][season]),
+        title2=unicode(data['title'] + " / " + data['seasons'][season]),
         content=ContainerContent.Episodes
     )
 
     episodes = data['episodes'].keys()
     episodes.sort(key=lambda k: int(k))
 
+    thumb = service.get_thumb(data['thumb'])
+
     for episode in episodes:
-        oc.add(GetVideoObject(data, episode))
+        title = data['episodes'][episode]
+
+        oc.add(DirectoryObject(
+            key=Callback(HandleMovie, path=path, title=title, name=title, thumb=thumb, season=season, episode=episode),
+            title=unicode(title),
+            thumb=thumb
+        ))
 
     return oc
 
-def GetVideoObject(item, episode=0):
-    if item['session'] == 'external':
-        url = item['url']
+@route(constants.PREFIX + '/movie', container=bool)
+def HandleMovie(path, title, name, thumb=None, season=None, episode=None, container=False, **params):
+    if path.find(service.URL) < 0:
+        path = service.URL + path
+
+    urls = service.retrieve_urls(path, season=season, episode=episode)
+
+
+    if not urls:
+        return util.no_contents()
     else:
-        url = MetaUrl('%s||%s' % (item['path'], episode))
-        url.update(item, episode)
+        media_info = {
+            "path": path,
+            "title": title,
+            "name": name,
+            "thumb": thumb,
+            "season": season,
+            "episode": episode
+        }
 
-    info = InitMetaUrl(url)
+        oc = ObjectContainer(title2=unicode(name))
 
-    return MetadataObjectForURL(info.item, info.episode)
+        oc.add(
+            MetadataObjectForURL(path=path, title=title, name=name, thumb=thumb, season=season, episode=episode,
+                                 urls=urls))
 
-@route(constants.PREFIX + '/movie')
-def HandleMovie(title, item, episode):
-    oc = ObjectContainer(title2=unicode(title))
+        # if str(container) == 'False':
+        #     history.push_to_history(media_info)
+        #     service.queue.append_queue_controls(oc, media_info,
+        #                                         add_bookmark_handler=HandleAddBookmark,
+        #                                         remove_bookmark_handler=HandleRemoveBookmark
+        #                                          )
 
-    oc.add(MetadataObjectForURL(json.loads(item), episode))
+        return oc
 
-    return oc
+def MetadataObjectForURL(path, title, name, thumb, season, episode, urls):
+    video = MovieObject(title=title)
 
-def MetadataObjectForURL(item, episode=None):
-    kwargs = {
-        'source_title': unicode(L('Title')),
-    }
+    if path.find(service.URL) < 0:
+        path = service.URL + path
 
-    for k in ['summary', 'thumb', 'directors', 'rating', 'duration', 'originally_available_at']:
-        if k in item and item[k]:
-            kwargs[k] = item[k]
+    document = service.fetch_document(path)
 
-    if episode and 'episodes' in item:
-        if 'roles' in item:
-            kwargs['guest_stars'] = item['roles']
+    data = service.get_media_data(document)
 
-        title = item['episodes'][str(episode)]
+    # info = service.parse_page(path)
+    # Log(info)
 
-        rating_key = service.get_episode_url(item['url'], item['current_season'], episode)
+    video.rating_key = 'rating_key'
+    video.rating = data['rating']
+    video.thumb = service.get_thumb(data['thumb'])
+    # video.year = data['year']
+    # video.tags = data['tags']
+    # video.duration = data['duration'] * 60 * 1000
+    # video.summary = data['description']
+    # video.originally_available_at = originally_available_at(on_air)
 
-        video = builder.build_metadata_object(media_type='episode', rating_key=rating_key, title=title,
-            season=int(item['current_season']), index=int(episode), show=item['title'], **kwargs)
-    else:
-        for k in ['year', 'original_title', 'countries']:
-            if k in item and item[k]:
-                kwargs[k] = item[k]
+    video.key = Callback(HandleMovie, path=path, title=title, name=name, thumb=thumb,
+                         season=season, episode=episode, container=True)
 
-        title = item['title']
-
-        video = builder.build_metadata_object(media_type='movie', title=title, rating_key=item['url'], **kwargs)
-
-    video.key = Callback(HandleMovie, title=title, item=json.dumps(item), episode=episode)
-
-    video.items = MediaObjectsForURL(item, episode)
+    video.items.extend(MediaObjectsForURL(urls))
 
     return video
 
-def MediaObjectsForURL(item, episode=None):
+def MediaObjectsForURL(urls):
     items = []
 
-    for variant in item['variants'].values():
-        if episode and 'episodes' in item and (str(item['current_season']) not in variant['seasons'] or str(episode) not in variant['episodes']):
-            continue
+    for item in urls:
+        url = item['url']
 
-        session = None
-        url_update = None
-        episode = None
-        season = None
+        play_callback = Callback(PlayVideo, url=url)
 
-        if item['url'] == variant['url'] and not episode:
-            session = JSON.StringFromObject(variant['session'])
-        else:
-            url_update = variant['url']
-
-            if episode:
-                season = item['current_season']
-
-        play_callback = Callback(Play, url=url_update, season=season, episode=episode, session=session)
-
-        media_object = builder.build_media_object(play_callback)
+        media_object = builder.build_media_object(play_callback, video_resolution=item['width'])
 
         items.append(media_object)
 
     return items
-
-def InitMetaUrl(url):
-    Log.Debug('Normalize URL: %s' % url)
-
-    try:
-        # has attribute crutch
-        if url.item:
-            return url
-    except:
-
-        # Fetch there. Replace - Samsung-TV crutch
-        res = url.replace('%7C%7C', '||').split('||')
-        res.reverse()
-
-        path = res.pop()
-        episode = res.pop() if len(res) else 0
-
-        url = MetaUrl(url)
-
-        try:
-            res = JSON.ObjectFromString(urllib.urlopen(
-                'http://127.0.0.1:32400%s?%s' % (
-                    '/video/hdserials/getmeta',
-                    urllib.urlencode({
-                        'path': path,
-                        'episode': episode
-                    })
-                )
-            ).read())
-
-            if res:
-                return url.update(res, episode)
-
-        except Exception as e:
-            Log.Error(u'%s' % e)
-            pass
-
-    raise Ex.MediaNotAvailable
-
-class MetaUrl(str):
-    item = None
-    episode = None
-
-    def update(self, item, episode):
-        self.item = item
-        self.episode = int(episode)
-        return self
-
-@route(constants.PREFIX + '/getmeta')
-def GetMeta(path, episode):
-    episode = int(episode)
-
-    item = service.parse_page(path)
-    if episode and episode != item['current_episode']:
-        item = UpdateItemInfo(item, item['current_season'], episode)
-
-    return JSON.StringFromObject(item)
-
-def UpdateItemInfo(item, season, episode):
-    url = item['url']
-    season = str(season)
-
-    if season not in item['variants'][url]['seasons']:
-        # Try to search variant with season
-        for variant in item['variants'].values():
-            if season in variant['seasons']:
-                url = variant['url']
-                if int(season) == variant['current_season'] and int(episode) == variant['current_episode']:
-                    update = variant.copy()
-                    del update['seasons']
-                    item.update(update)
-                    return item
-                break
-
-    update = service.get_info_by_url(service.get_episode_url(url, season, episode), HTTP.Headers, url)
-
-    if not update:
-        return None
-
-    item['variants'][url].update(update.copy())
-
-    del update['seasons']
-    item.update(update)
-
-    service.save_cache(item)
-
-    return item
 
 @route(constants.PREFIX + '/search')
 def HandleSearch(query=None, page=1):
@@ -391,64 +332,33 @@ def HandleSearch(query=None, page=1):
     response = service.search(query=query)
 
     for movie in response['movies']:
-        Log(movie)
         name = movie['name']
-        thumb = movie['thumb']
+        thumb = service.get_thumb(movie['thumb'])
         path = movie['path']
 
-        key = Callback(HandleMovies, path=path, title=name, name=name, thumb=thumb)
+        oc.add(DirectoryObject(
+            key=Callback(HandleContainer, path=path, title=name, name=name, thumb=thumb),
+            title=unicode(name),
+            thumb=thumb
+        ))
 
-        oc.add(DirectoryObject(key=key, title=unicode(name), thumb=thumb))
-
-    #pagination.append_controls(oc, response, page=page, callback=HandleSearch, query=query)
+    pagination.append_controls(oc, response, page=page, callback=HandleSearch, query=query)
 
     return oc
 
 @indirect
-@route(constants.PREFIX + '/play')
-def Play(session, url, season, episode):
-    if not session:
-        url_info = service.get_info_by_url(service.get_episode_url(
-            url, season, episode
-        ), HTTP.Headers, url)
-
-        if not url_info:
-            raise Ex.MediaNotAvailable
-
-        session = url_info['session']
+@route(constants.PREFIX + '/play_video')
+def PlayVideo(url):
+    if not url:
+        return util.no_contents()
     else:
-        session = JSON.ObjectFromString(session)
+        play_list = Callback(PlayList, url=url)
 
-    res = JSON.ObjectFromURL(
-        url='http://moonwalk.cc/sessions/create_session',
-        values=session['data'],
-        headers=session['headers'],
-        method='POST',
-        cacheTime=0
-    )
-
-    if not res:
-        raise Ex.MediaNotAvailable
-
-    try:
-        res = HTTP.Request(res['manifest_m3u8']).content
-        Log.Debug('Found streams: %s' % res)
-    except:
-        raise Ex.MediaNotAvailable
-
-    res = [line for line in res.splitlines() if line].pop()
-
-    Log.Debug('Try to play %s' % res)
-
-    res = Callback(Playlist, res=res)
-
-    return IndirectResponse(VideoClipObject, key=HTTPLiveStreamURL(res))
+        return IndirectResponse(MovieObject, key=HTTPLiveStreamURL(play_list))
 
 @route(constants.PREFIX + '/play_list.m3u8')
-def Playlist(res):
-    # Some players does not support gziped response
-
-    return service.get_play_list(res)
+def PlayList(url):
+    return service.get_play_list(url)
 
 @route(constants.PREFIX + '/history')
 def History():
@@ -460,10 +370,12 @@ def History():
         for item in sorted(history_object.values(), key=lambda k: k['time'], reverse=True):
             path = item['path']
             title = item['title']
-            thumb = item['thumb']
+            thumb = service.get_thumb(item['thumb'])
 
             oc.add(DirectoryObject(
-                key=Callback(HandleMovies, path=path), title=unicode(title), thumb=thumb
+                key=Callback(HandleContainer, path=path, title=title, name=title, thumb=thumb),
+                title=unicode(title),
+                thumb=thumb
             ))
 
     return oc
@@ -487,34 +399,9 @@ def HandleQueue(title):
             ))
         else:
             oc.add(DirectoryObject(
-                key=Callback(HandleMovies, **item),
+                key=Callback(HandleContainer, **item),
                 title=unicode(item['title']),
                 thumb=item['thumb']
             ))
 
     return oc
-
-def get_episode_info(title):
-    try:
-        info = ParseNewsTitle(title)
-        title = u'%s - S%dE%d (%s)' % (
-            info['title'],
-            int(info['season']),
-            int(info['episode']),
-            info['date']
-        )
-
-        season = info['season']
-        episode = info['episode']
-    except:
-        season = None
-        episode = None
-
-    return {"season": season, "episode": episode, "title": title}
-
-def ParseNewsTitle(title):
-    return Regex(
-        u'(?P<date>\d{2}\.\d{2}\.\d{4})\sДобавлена'
-        u'\s(?P<episode>\d+)\sсерия\sсериала\s(?P<title>.+)'
-        u'\s(?P<season>\d+)\sсезон'
-    ).match(title).groupdict()

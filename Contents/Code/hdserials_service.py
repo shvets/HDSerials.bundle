@@ -37,13 +37,16 @@ class HDSerialsService(MwService):
 
         document = self.fetch_document(self.URL)
 
-        links = document.xpath('//div[@id="gkHeaderheader1"]//div[@class="custom"]/div/a')
+        items = document.xpath('//div[@id="gkHeaderheader1"]//div[@class="custom"]/div')
 
-        for link in links:
+        for item in items:
+            link = item.find('a')
+
             path = link.xpath('@href')[0]
             title = link.text_content()
+            text = item.xpath('span')[0].text_content() + ' ' + title
 
-            list.append({'path': path, 'title': title})
+            list.append({'path': path, 'title': title, 'text': text})
 
         return list
 
@@ -56,13 +59,15 @@ class HDSerialsService(MwService):
 
         for index, item in enumerate(items):
             if index >= (page - 1) * per_page and index < page * per_page:
-                title = item.find('h4').text_content()
                 link = item.find('a')
 
                 path = link.xpath('@href')[0]
-                thumb = link.find('img').get('src')
 
-                list.append({'path': path, 'title': title, 'thumb': thumb})
+                if path:
+                    title = item.find('h4').text_content()
+                    thumb = link.find('img').get('src')
+
+                    list.append({'path': path, 'title': title, 'thumb': thumb})
 
         pagination = self.extract_popular_pagination_data(items, page, per_page)
 
@@ -93,11 +98,11 @@ class HDSerialsService(MwService):
         links = document.xpath('//div[@class="itemList"]//div[@class="catItemBody"]//span[@class="catItemImage"]/a')
 
         for link in links:
-            path = link.xpath('@href')[0]
+            href = link.xpath('@href')[0]
             title = link.get('title')
             thumb = link.find('img').get('src')
 
-            list.append({'path': path, 'title': title, 'thumb': thumb})
+            list.append({'path': href, 'title': title, 'thumb': thumb})
 
         pagination = self.extract_pagination_data(page_path)
 
@@ -150,10 +155,10 @@ class HDSerialsService(MwService):
 
         return response
 
-    def get_media_data(self, path):
+    def get_media_data(self, document):
         data = {}
 
-        document = self.fetch_document(path)
+        # document = self.fetch_document(path)
 
         frame_block = document.xpath('//div[@id="k2Container"]')[0]
 
@@ -294,7 +299,9 @@ class HDSerialsService(MwService):
         #document = self.fetch_document(path)
         #page = document.xpath('//div[@id="k2Container"]')[0]
 
-        media_data = self.get_media_data(path)
+        document = self.fetch_document(path)
+
+        media_data = self.get_media_data(document)
 
         data = {'variants': {}}
 
@@ -478,11 +485,44 @@ class HDSerialsService(MwService):
 
         return new_path
 
+    def get_thumb(self, path):
+        if path.find(self.URL) < 0:
+            thumb = self.URL + path
+        else:
+            thumb = path
+
+        return thumb
+
     def get_episode_url(self, url, season, episode):
         if season:
             return '%s?season=%d&episode=%d' % (url, int(season), int(episode))
 
         return url
+
+    def get_episode_info(self, title):
+        try:
+            info = self.parse_news_title(title)
+            title = u'%s - S%dE%d (%s)' % (
+                info['title'],
+                int(info['season']),
+                int(info['episode']),
+                info['date']
+            )
+
+            season = info['season']
+            episode = info['episode']
+        except:
+            season = None
+            episode = None
+
+        return {"season": season, "episode": episode, "title": title}
+
+    def parse_news_title(self, title):
+        return re.compile(
+            u'(?P<date>\d{2}\.\d{2}\.\d{4})\sДобавлена'
+            u'\s(?P<episode>\d+)\sсерия\sсериала\s(?P<title>.+)'
+            u'\s(?P<season>\d+)\sсезон'
+        ).match(title).groupdict()
 
     def replace_keys(self, s, keys):
         s = s.replace('\'', '"')
