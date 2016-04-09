@@ -15,7 +15,7 @@ class HDSerialsService(MwService):
 
         return document.xpath('//div[@id="gkDropMain"]//a[contains(@href, ".html")]')
 
-    def get_menu(self):
+    def get_categories(self):
         list = []
 
         document = self.fetch_document(self.URL)
@@ -68,7 +68,7 @@ class HDSerialsService(MwService):
 
         return {"movies": list, "pagination": pagination["pagination"]}
 
-    def get_categories(self, path):
+    def get_subcategories(self, path):
         list = []
 
         document = self.fetch_document(self.URL + path)

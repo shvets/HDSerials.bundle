@@ -11,8 +11,8 @@ class HDSerialsServiceTest(unittest.TestCase):
     def setUp(self):
         self.service = HDSerialsService()
 
-    def test_get_menu(self):
-        menu_items = self.service.get_menu()
+    def test_get_get_categories(self):
+        menu_items = self.service.get_categories()
 
         for item in menu_items:
             self.assertTrue(len(item['path']) > 0)
@@ -35,8 +35,8 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         print(json.dumps(response, indent=4))
 
-    def test_get_categories(self):
-        items = self.service.get_categories('/Filmy.html')
+    def test_get_subcategories(self):
+        items = self.service.get_subcategories('/Filmy.html')
 
         for item in items:
             self.assertTrue(len(item['path']) > 0)

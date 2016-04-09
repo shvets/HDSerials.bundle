@@ -48,11 +48,28 @@ def HandlePopular(page=1):
 
     return oc
 
+@route(constants.PREFIX + '/categories')
+def HandleCategories():
+    oc = ObjectContainer(title2=unicode(L('Categories')))
+
+    items = service.get_categories()
+
+    for item in items:
+        title = item['title']
+        path = item['path']
+
+        oc.add(DirectoryObject(
+            key=Callback(HandleCategory, path=path, title=title),
+            title=title
+        ))
+
+    return oc
+
 @route(constants.PREFIX + '/category')
 def HandleCategory(path, title):
     oc = ObjectContainer(title2=u'%s' % title)
 
-    cats = service.get_categories(path)
+    cats = service.get_subcategories(path)
 
     if cats:
         # Add all items category

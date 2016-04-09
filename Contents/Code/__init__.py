@@ -35,18 +35,7 @@ def MainMenu():
 
     oc.add(DirectoryObject(key=Callback(main.HandleNewSeries), title=unicode(L('New Series'))))
     oc.add(DirectoryObject(key=Callback(main.HandlePopular), title=unicode(L('Popular'))))
-
-    menu_items = service.get_menu()
-
-    for item in menu_items:
-        title = item['title']
-        path = item['path']
-
-        oc.add(DirectoryObject(
-            key=Callback(main.HandleCategory, path=path, title=title),
-            title=title
-        ))
-
+    oc.add(DirectoryObject(key=Callback(main.HandleCategories), title=unicode(L('Categories'))))
     oc.add(DirectoryObject(key=Callback(main.History), title=unicode(L('History'))))
     oc.add(DirectoryObject(key=Callback(main.HandleQueue, title=unicode(L('Queue'))), title=unicode(L('Queue'))))
 
