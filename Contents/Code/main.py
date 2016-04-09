@@ -10,8 +10,8 @@ from flow_builder import FlowBuilder
 
 builder = FlowBuilder()
 
-@route(constants.PREFIX + '/news')
-def ShowNews():
+@route(constants.PREFIX + '/new_series')
+def HandleNewSeries():
     oc = ObjectContainer(title2=u'Новые серии')
 
     new_series = service.get_new_series()
@@ -29,34 +29,27 @@ def ShowNews():
     return oc
 
 @route(constants.PREFIX + '/popular')
-def ShowPopular(page=1):
+def HandlePopular(page=1):
     page = int(page)
 
     oc = ObjectContainer(title2=unicode(L('Popular')))
 
-    per_page = 20
+    response = service.get_popular(page=page)
 
-    items = service.get_popular()
+    for index, item in enumerate(response['movies']):
+        title = item['title']
+        path = item['path']
+        thumb = item['thumb']
 
-    for index, item in enumerate(items):
-        Log(index)
+        if path:
+            oc.add(DirectoryObject(key=Callback(HandleMovies, path=path), title=title, thumb=thumb))
 
-        if index >= (page - 1) * per_page and index < page * per_page:
-            title = item['title']
-            path = item['path']
-            thumb = item['thumb']
-
-            if path:
-                oc.add(DirectoryObject(key=Callback(HandleMovies, path=path), title=title, thumb=thumb))
-
-    pagination_data = service.extract_popular_pagination_data(items, page, per_page)
-
-    pagination.append_controls(oc, pagination_data, page=int(page), callback=ShowPopular)
+    pagination.append_controls(oc, response, page=int(page), callback=HandlePopular)
 
     return oc
 
 @route(constants.PREFIX + '/category')
-def ShowCategory(path, title):
+def HandleCategory(path, title):
     oc = ObjectContainer(title2=u'%s' % title)
 
     cats = service.get_categories(path)
@@ -68,31 +61,26 @@ def ShowCategory(path, title):
         if items:
             oc.add(DirectoryObject(
                 title=u'Все %s' % title.lower(),
-                key=Callback(ShowSubcategory, path=path, title=title)
+                key=Callback(HandleCategoryItems, path=path, title=title)
             ))
 
         for item in cats:
             title = u'%s' % item['title']
             oc.add(DirectoryObject(
                 title=title,
-                key=Callback(ShowSubcategory, path=item['path'], title=title)
+                key=Callback(HandleCategoryItems, path=item['path'], title=title)
             ))
 
     return oc
 
-@route(constants.PREFIX + '/subcategory')
-def ShowSubcategory(path, title, page=1):
+@route(constants.PREFIX + '/category_items')
+def HandleCategoryItems(path, title, page=1):
     oc = ObjectContainer(title2=u'%s' % title)
 
-    if page == 1:
-        new_path = path
-    else:
-        new_path = path[:len(path)-5] + '/Page-' + str(page) + '.html'
+    response = service.get_category_items(path, page)
 
-    items = service.get_category_items(new_path)
-
-    if items:
-        for item in items:
+    if response['movies']:
+        for item in response['movies']:
             title = u'%s' % item['title']
             oc.add(DirectoryObject(
                 title=u'%s' % item['title'],
@@ -100,9 +88,7 @@ def ShowSubcategory(path, title, page=1):
                 thumb='%s%s' % (service.URL, item['thumb']),
             ))
 
-        pagination_data = service.extract_pagination_data(new_path)
-
-        pagination.append_controls(oc, pagination_data, page=page, callback=ShowSubcategory, title=title, path=path)
+        pagination.append_controls(oc, response, page=page, callback=HandleCategoryItems, title=title, path=path)
 
     return oc
 
@@ -127,9 +113,9 @@ def HandleMovies(path, **kwargs):
 
     if 'seasons' in info:
         if 'season' in kwargs and kwargs['season'] in info['seasons']:
-            return Episodes(info['path'], kwargs['season'])
+            return HandleEpisodes(info['path'], kwargs['season'])
         else:
-          return Seasons(info['path'])
+          return HandleSeasons(info['path'])
     else:
         try:
             vo = GetVideoObject(info)
@@ -139,14 +125,14 @@ def HandleMovies(path, **kwargs):
             return util.no_contents()
 
 @route(constants.PREFIX + '/seasons')
-def Seasons(path):
+def HandleSeasons(path):
     data = service.parse_page(path)
 
     # if not data:
     #     return util.no_contents()
 
     if len(data['seasons']) == 1:
-        return Episodes(path, data['current_season'])
+        return HandleEpisodes(path, data['current_season'])
 
     oc = ObjectContainer(
         title2=data['title'],
@@ -159,7 +145,7 @@ def Seasons(path):
 
     for season in seasons:
         oc.add(SeasonObject(
-            key=Callback(Episodes, path=path, season=season),
+            key=Callback(HandleEpisodes, path=path, season=season),
             rating_key=service.get_episode_url(data['url'], season, 0),
             index=int(season),
             title=data['seasons'][season],
@@ -171,7 +157,7 @@ def Seasons(path):
     return oc
 
 @route(constants.PREFIX + '/episodes')
-def Episodes(path, season):
+def HandleEpisodes(path, season):
     Log.Debug('Get episodes for %s' % path)
 
     data = service.parse_page(path)

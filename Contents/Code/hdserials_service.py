@@ -47,23 +47,26 @@ class HDSerialsService(MwService):
 
         return list
 
-    def get_popular(self):
+    def get_popular(self, page=1, per_page=20):
         list = []
 
         document = self.fetch_document(self.URL + '/popular.html')
 
         items = document.xpath('//div[contains(@class, "nspArts")]//div[contains(@class, "nspArt")]/div')
 
-        for item in items:
-            title = item.find('h4').text_content()
-            link = item.find('a')
+        for index, item in enumerate(items):
+            if index >= (page - 1) * per_page and index < page * per_page:
+                title = item.find('h4').text_content()
+                link = item.find('a')
 
-            path = link.xpath('@href')[0]
-            thumb = link.find('img').get('src')
+                path = link.xpath('@href')[0]
+                thumb = link.find('img').get('src')
 
-            list.append({'path': path, 'title': title, 'thumb': thumb})
+                list.append({'path': path, 'title': title, 'thumb': thumb})
 
-        return list
+        pagination = self.extract_popular_pagination_data(items, page, per_page)
+
+        return {"movies": list, "pagination": pagination["pagination"]}
 
     def get_categories(self, path):
         list = []
@@ -80,10 +83,12 @@ class HDSerialsService(MwService):
 
         return list
 
-    def get_category_items(self, path):
+    def get_category_items(self, path, page=1):
         list = []
 
-        document = self.fetch_document(self.URL + path)
+        page_path = self.get_page_path(path, page)
+
+        document = self.fetch_document(self.URL + page_path)
 
         links = document.xpath('//div[@class="itemList"]//div[@class="catItemBody"]//span[@class="catItemImage"]/a')
 
@@ -94,22 +99,9 @@ class HDSerialsService(MwService):
 
             list.append({'path': path, 'title': title, 'thumb': thumb})
 
-        return list
+        pagination = self.extract_pagination_data(page_path)
 
-    def get_pagination(self, path):
-        list = []
-
-        document = self.fetch_document(self.URL + path)
-
-        links = document.xpath('//div[@class="k2Pagination"]/ul/li[@class="pagination-next"]/a')
-
-        for link in links:
-            path = link.xpath('@href')[0]
-            title = link.text_content()
-
-            list.append({'path': path, 'title': title})
-
-        return list
+        return {"movies": list, "pagination": pagination["pagination"]}
 
     def extract_pagination_data(self, path):
         document = self.fetch_document(self.URL + path)
@@ -477,6 +469,14 @@ class HDSerialsService(MwService):
         csrf_token = document.xpath('//meta[@name="csrf-token"]/@content')[0]
 
         return {'cookie': str(cookie), 'csrf-token': str(csrf_token)}
+
+    def get_page_path(self, path, page=1):
+        if page == 1:
+            new_path = path
+        else:
+            new_path = path[:len(path) - 5] + '/Page-' + str(page) + '.html'
+
+        return new_path
 
     def get_episode_url(self, url, season, episode):
         if season:

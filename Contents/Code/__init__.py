@@ -33,8 +33,8 @@ def MainMenu():
 
     # Updater(constants.PREFIX + '/update', oc)
 
-    oc.add(DirectoryObject(key=Callback(main.ShowNews), title=unicode(L('New Series'))))
-    oc.add(DirectoryObject(key=Callback(main.ShowPopular), title=unicode(L('Popular'))))
+    oc.add(DirectoryObject(key=Callback(main.HandleNewSeries), title=unicode(L('New Series'))))
+    oc.add(DirectoryObject(key=Callback(main.HandlePopular), title=unicode(L('Popular'))))
 
     menu_items = service.get_menu()
 
@@ -43,7 +43,7 @@ def MainMenu():
         path = item['path']
 
         oc.add(DirectoryObject(
-            key=Callback(main.ShowCategory, path=path, title=title),
+            key=Callback(main.HandleCategory, path=path, title=title),
             title=title
         ))
 
