@@ -5,6 +5,7 @@ import json
 
 import constants
 import util
+import pagination
 from flow_builder import FlowBuilder
 
 builder = FlowBuilder()
@@ -28,53 +29,69 @@ def ShowNews():
     return oc
 
 @route(constants.PREFIX + '/popular')
-def ShowPopular():
+def ShowPopular(page=1):
+    page = int(page)
+
     oc = ObjectContainer(title2=unicode(L('Popular')))
+
+    per_page = 20
 
     items = service.get_popular()
 
-    for item in items:
-        title = item['title']
-        path = item['path']
-        thumb = item['thumb']
+    for index, item in enumerate(items):
+        Log(index)
 
-        if path:
-            oc.add(DirectoryObject(key=Callback(HandleMovies, path=path), title=title, thumb=thumb))
+        if index >= (page - 1) * per_page and index < page * per_page:
+            title = item['title']
+            path = item['path']
+            thumb = item['thumb']
 
-    # todo: add pagination
+            if path:
+                oc.add(DirectoryObject(key=Callback(HandleMovies, path=path), title=title, thumb=thumb))
+
+    pagination_data = service.extract_popular_pagination_data(items, page, per_page)
+
+    pagination.append_controls(oc, pagination_data, page=int(page), callback=ShowPopular)
 
     return oc
 
 @route(constants.PREFIX + '/category')
-def ShowCategory(path, title, show_items=False, page=1):
+def ShowCategory(path, title):
     oc = ObjectContainer(title2=u'%s' % title)
 
-    items = service.get_category_items(path)
-
-    cats = None
-
-    if not show_items:
-        cats = service.get_categories(path)
+    cats = service.get_categories(path)
 
     if cats:
         # Add all items category
+        items = service.get_category_items(path)
+
         if items:
             oc.add(DirectoryObject(
                 title=u'Все %s' % title.lower(),
-                key=Callback(ShowCategory, path=path, title=title, show_items=True)
+                key=Callback(ShowSubcategory, path=path, title=title)
             ))
 
         for item in cats:
             title = u'%s' % item['title']
             oc.add(DirectoryObject(
                 title=title,
-                key=Callback(ShowCategory, path=item['path'], title=title)
+                key=Callback(ShowSubcategory, path=item['path'], title=title)
             ))
-    elif items:
-        # View subcategory with single item
-        if not show_items and len(items) == 1:
-            return HandleMovies(items[0]['path'])
 
+    return oc
+
+@route(constants.PREFIX + '/subcategory')
+def ShowSubcategory(path, title, page=1):
+    oc = ObjectContainer(title2=u'%s' % title)
+
+    if page == 1:
+        new_path = path
+    else:
+        new_path = path[:len(path)-5] + '/Page-' + str(page) + '.html'
+
+    items = service.get_category_items(new_path)
+
+    if items:
         for item in items:
             title = u'%s' % item['title']
             oc.add(DirectoryObject(
@@ -83,22 +100,9 @@ def ShowCategory(path, title, show_items=False, page=1):
                 thumb='%s%s' % (service.URL, item['thumb']),
             ))
 
-        # document = service.fetch_document(path)
-        # result["pagination"] = service.extract_pagination_data(document, path)
-        #
-        # pagination.append_controls(oc, response, page=page, callback=ShowCategory, title=title, path=path)
+        pagination_data = service.extract_pagination_data(new_path)
 
-        # next_page = page.xpath(
-        #     '//div[@class="k2Pagination"]/ul/li[@class="pagination-next"]/a'
-        # )
-
-        next_page = service.get_pagination(path)
-
-        if next_page:
-            oc.add(NextPageObject(
-                title=u'%s' % next_page[0]['title'],
-                key=Callback(ShowCategory, path=next_page[0]['path'], title=title, show_items=True)
-            ))
+        pagination.append_controls(oc, pagination_data, page=page, callback=ShowSubcategory, title=title, path=path)
 
     return oc
 

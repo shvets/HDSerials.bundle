@@ -111,6 +111,53 @@ class HDSerialsService(MwService):
 
         return list
 
+    def extract_pagination_data(self, path):
+        document = self.fetch_document(self.URL + path)
+
+        response = {}
+
+        pagination_root = document.xpath('//div[@class="k2Pagination"]')
+
+        if pagination_root:
+            pagination_block = pagination_root[0]
+
+            counter = pagination_block.xpath('p[@class="counter"]/span')[0].text_content()
+
+            phrase = counter.split(' ')
+
+            page = int(phrase[1])
+            pages = int(phrase[3])
+
+        else:
+            page = 1
+            pages = 1
+
+        response["pagination"] = {
+            "page": page,
+            "pages": pages,
+            "has_previous": page > 1,
+            "has_next": page < pages,
+        }
+
+        return response
+
+    def extract_popular_pagination_data(self, items, page, per_page):
+        pages = len(items) / per_page
+
+        if len(items) % per_page > 0:
+            pages = pages + 1
+
+        response = {}
+
+        response["pagination"] = {
+            "page": page,
+            "pages": pages,
+            "has_previous": page > 1,
+            "has_next": page < pages,
+        }
+
+        return response
+
     def get_media_data(self, path):
         data = {}
 
