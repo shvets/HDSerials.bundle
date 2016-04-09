@@ -49,20 +49,13 @@ class FlowBuilder():
         if media_type == 'episode':
             video = EpisodeObject(**params)
 
-            # video.show = name
-            # video.year = int(year)
-            # video.index = int(index)
+        elif media_type == 'tv_show':
+            video = TVShowObject(**params)
 
         elif media_type == 'movie':
             video = MovieObject(**params)
 
-            # video.title = name
-            # video.year = int(year)
-
         else:
             video = VideoClipObject(**params)
-
-            # video.title = name
-            # video.year = int(year)
 
         return video

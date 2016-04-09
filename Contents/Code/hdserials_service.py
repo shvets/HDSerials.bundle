@@ -202,36 +202,42 @@ class HDSerialsService(MwService):
 
         content = self.fetch_content(url)
 
-        return self.get_movies(content)
-
-    def get_movies(self, content):
         result = {'movies': []}
 
         data = json.loads(content)
 
         if 'items' in data:
             for item in data['items']:
-                if item['title'] in item['category']['name']:
-                    title = u'%s' % item['category']['name']
+                # print(item['category'])
+                # if item['title'] in item['category']['name']:
+                #     title = u'%s' % item['category']['name']
+                #
+                #     key = '%s?%s' % (
+                #         '/video/hdserials/container',
+                #         urllib.urlencode({'path': item['link']}))
+                # else:
+                #     title = u'%s / %s' % (item['category']['name'], item['title'])
+                #     key = '%s%s' % (self.URL, item['link'])
 
-                    key = '%s?%s' % (
-                        '/video/hdserials/info',
-                        urllib.urlencode({'path': item['link']}))
-                else:
-                    title = u'%s / %s' % (item['category']['name'], item['title'])
-                    key = '%s%s' % (self.URL, item['link'])
-
+                title = u'%s / %s' % (item['category']['name'], item['title'])
+                key = '%s%s' % (self.URL, item['link'])
 
                 rating_key = item['link']
 
-                thumb = '%s%s' % (
-                    self.URL,
-                    item['image']
-                )
+                thumb = '%s%s' % (self.URL, item['image'])
 
                 summary = self.to_document(item['introtext']).text_content()
 
-                result['movies'].append({"key": key, "rating_key": rating_key, "name": title, "thumb": thumb, "summary": summary})
+                movie = {
+                    "key": key,
+                    "rating_key": rating_key,
+                    "name": title,
+                    "thumb": thumb,
+                    "summary": summary,
+                    "path": self.URL + item['link']
+                 }
+
+                result['movies'].append(movie)
 
         return result
 
@@ -246,7 +252,7 @@ class HDSerialsService(MwService):
         # if ret:
         #     return ret
 
-        document = self.fetch_document(path)
+        #document = self.fetch_document(path)
         #page = document.xpath('//div[@id="k2Container"]')[0]
 
         media_data = self.get_media_data(path)
@@ -425,7 +431,7 @@ class HDSerialsService(MwService):
 
         return {'cookie': str(cookie), 'csrf-token': str(csrf_token)}
 
-    def get_episode_url(url, season, episode):
+    def get_episode_url(self, url, season, episode):
         if season:
             return '%s?season=%d&episode=%d' % (url, int(season), int(episode))
 

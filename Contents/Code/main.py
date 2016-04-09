@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import urllib
-from urllib import urlencode
 
 import constants
 import util
@@ -21,7 +20,7 @@ def ShowNews():
         info = get_episode_info(item['title'])
 
         oc.add(DirectoryObject(
-            key=Callback(ShowInfo, path=path, season=info['season'], episode=info['episode']),
+            key=Callback(HandleMovies, path=path, season=info['season'], episode=info['episode']),
             title=item['title']
         ))
 
@@ -39,7 +38,7 @@ def ShowPopular():
         thumb = item['thumb']
 
         if path:
-            oc.add(DirectoryObject(key=Callback(ShowInfo, path=path), title=title, thumb=thumb))
+            oc.add(DirectoryObject(key=Callback(HandleMovies, path=path), title=title, thumb=thumb))
 
     # todo: add pagination
 
@@ -73,13 +72,13 @@ def ShowCategory(path, title, show_items=False, page=1):
     elif items:
         # View subcategory with single item
         if not show_items and len(items) == 1:
-            return ShowInfo(items[0]['path'])
+            return HandleMovies(items[0]['path'])
 
         for item in items:
             title = u'%s' % item['title']
             oc.add(DirectoryObject(
                 title=u'%s' % item['title'],
-                key=Callback(ShowInfo, path=item['path']),
+                key=Callback(HandleMovies, path=item['path']),
                 thumb='%s%s' % (service.URL, item['thumb']),
             ))
 
@@ -102,9 +101,8 @@ def ShowCategory(path, title, show_items=False, page=1):
 
     return oc
 
-@route(constants.PREFIX + '/info')
-def ShowInfo(path, **kwargs):
-    #info = ParsePage(path)
+@route(constants.PREFIX + '/movies')
+def HandleMovies(path, **kwargs):
     info = service.parse_page(path)
 
     if not info:
@@ -167,7 +165,6 @@ def Seasons(path):
 
     return oc
 
-
 @route(constants.PREFIX + '/episodes')
 def Episodes(path, season):
     Log.Debug('Get episodes for %s' % path)
@@ -186,9 +183,9 @@ def Episodes(path, season):
         for episode in data['episodes']:
             Log.Debug('Try to get metadata from external: %s' % episode)
             try:
-                oc.add(URLService.MetadataObjectForURL(
-                    data['episodes'][episode]['url']
-                ))
+                url = data['episodes'][episode]['url']
+
+                oc.add(MetadataObjectForURL(url))
             except:
                 continue
         return oc if len(oc) else util.no_contents()
@@ -252,51 +249,23 @@ def UpdateItemInfo(item, season, episode):
     return item
 
 @route(constants.PREFIX + '/search')
-def HandleSearch(query):
-    oc = ObjectContainer(title2=u'%s' % L('Поиск'))
+def HandleSearch(query=None, page=1):
+    oc = ObjectContainer(title2=unicode(L('Search')))
 
-    try:
-        HTTP.Headers['Referer'] = '%s/' % service.URL
-        res = JSON.ObjectFromURL(
-            '%s/index.php?%s' % (service.URL, urlencode({
-                'option': 'com_k2',
-                'view': 'itemlist',
-                'task': 'search',
-                'searchword': query,
-                'categories': '',
-                'format': 'json',
-                'tpl': 'search',
-            }))
-        )
-    except:
-        return oc
+    response = service.search(query=query)
 
-    if 'items' in res:
-        for item in res['items']:
-            rating_key = item['link']
+    for movie in response['movies']:
+        Log(movie)
+        name = movie['name']
+        thumb = movie['thumb']
+        path = movie['path']
 
-            if item['title'] in item['category']['name']:
-                title = u'%s' % item['category']['name']
-                key = '%s?%s' % (constants.PREFIX + '/info', urlencode({'path': item['link']}))
+        key = Callback(HandleMovies, path=path, title=name, name=name, thumb=thumb)
 
-                oc.add(TVShowObject(title=title, key=key, rating_key=rating_key,
-                                       thumb='%s%s' % (service.URL, item['image']),
-                                       summary=HTML.ElementFromString(item['introtext']).text_content()))
-            else:
-                title = u'%s / %s' % (item['category']['name'], item['title'])
-                # key = URLService.LookupURLForMediaURL(service.URL + item['link'])
+        oc.add(DirectoryObject(key=key, title=unicode(name), thumb=thumb))
 
-                key = Callback(HandleMovie, title=title, url=service.URL + item['link'])
-                    # ,
-                    #            rating_key=rating_key,
-                    #            thumb='%s%s' % (service.URL, item['image']),
-                    #            summary=HTML.ElementFromString(item['introtext']).text_content())
+    #pagination.append_controls(oc, response, page=page, callback=HandleSearch, query=query)
 
-                # oc.add(MovieObject(title=title, key=key, rating_key=rating_key,
-                #                        thumb='%s%s' % (service.URL, item['image']),
-                #                        summary=HTML.ElementFromString(item['introtext']).text_content()))
-
-                oc.add(DirectoryObject(key=key, title=title))
     return oc
 
 @route(constants.PREFIX + '/movie')
@@ -427,9 +396,6 @@ class MetaUrl(str):
 @indirect
 @route(constants.PREFIX + '/play')
 def Play(session, url, season, episode):
-    Log('Play')
-    Log.Debug('Get playlist from %s' % url)
-
     if not session:
         url_info = service.get_info_by_url(service.get_episode_url(
             url, season, episode
@@ -470,23 +436,8 @@ def Play(session, url, season, episode):
 @route(constants.PREFIX + '/play_list.m3u8')
 def Playlist(res):
     # Some players does not support gziped response
-    Log.Debug('Modify playlist %s' % res)
 
-    path = res.replace('tracks-2,4', 'tracks-1,4').split('/')
-    path.pop()
-    path = '/'.join(path)
-    try:
-        res = HTTP.Request(res).content.splitlines()
-    except:
-        raise Ex.MediaNotAvailable
-
-    for i in range(0, len(res)):
-        if res[i] == '#EXT-X-ENDLIST':
-            break
-        if res[i][:1] != '#':
-            res[i] = path + '/' + res[i]
-
-    return "\n".join(res)
+    return service.get_play_list(res)
 
 def GetVideoObject(item, episode=0):
     if item['session'] == 'external':
@@ -506,10 +457,7 @@ def History():
     if history_object:
         for item in sorted(history_object.values(), key=lambda k: k['time'], reverse=True):
             oc.add(DirectoryObject(
-                key=Callback(
-                    ShowInfo,
-                    path=item['path']
-                ),
+                key=Callback(HandleMovies, path=item['path']),
                 title=u'%s' % item['title'],
                 thumb=item['thumb']
             ))
@@ -535,7 +483,7 @@ def HandleQueue(title):
             ))
         else:
             oc.add(DirectoryObject(
-                key=Callback(HandleContainer, **item),
+                key=Callback(HandleMovies, **item),
                 title=unicode(item['title']),
                 thumb=item['thumb']
             ))
