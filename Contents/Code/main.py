@@ -244,7 +244,7 @@ def MetadataObjectForURL(item, episode=None):
         if k in item and item[k]:
             kwargs[k] = item[k]
 
-    if episode:
+    if episode and 'episodes' in item:
         if 'roles' in item:
             kwargs['guest_stars'] = item['roles']
 
@@ -273,7 +273,7 @@ def MediaObjectsForURL(item, episode=None):
     items = []
 
     for variant in item['variants'].values():
-        if episode and (str(item['current_season']) not in variant['seasons'] or str(episode) not in variant['episodes']):
+        if episode and 'episodes' in item and (str(item['current_season']) not in variant['seasons'] or str(episode) not in variant['episodes']):
             continue
 
         session = None
