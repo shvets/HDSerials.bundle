@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import urllib
+import json
 
 import constants
 import util
@@ -215,22 +216,19 @@ def GetVideoObject(item, episode=0):
         url = MetaUrl('%s||%s' % (item['path'], episode))
         url.update(item, episode)
 
-    return MetadataObjectForURL(url)
+    info = InitMetaUrl(url)
+
+    return MetadataObjectForURL(info.item, info.episode)
 
 @route(constants.PREFIX + '/movie')
-def HandleMovie(title, url, **params):
+def HandleMovie(title, item, episode):
     oc = ObjectContainer(title2=unicode(title))
 
-    oc.add(MetadataObjectForURL(url))
+    oc.add(MetadataObjectForURL(json.loads(item), episode))
 
     return oc
 
-def MetadataObjectForURL(url):
-    url = InitMetaUrl(url)
-
-    item = url.item
-    episode = url.episode
-
+def MetadataObjectForURL(item, episode=None):
     kwargs = {
         'source_title': unicode(L('Title')),
     }
@@ -258,20 +256,17 @@ def MetadataObjectForURL(url):
 
         video = builder.build_metadata_object(media_type='movie', title=title, rating_key=item['url'], **kwargs)
 
-    video.key = Callback(HandleMovie, title=title, url=url)
+    video.key = Callback(HandleMovie, title=title, item=json.dumps(item), episode=episode)
 
-    video.items = MediaObjectsForURL(url)
+    video.items = MediaObjectsForURL(item, episode)
 
     return video
 
-def MediaObjectsForURL(url):
+def MediaObjectsForURL(item, episode=None):
     items = []
 
-    url = InitMetaUrl(url)
-    item = url.item
-
     for variant in item['variants'].values():
-        if url.episode and (str(item['current_season']) not in variant['seasons'] or str(url.episode) not in variant['episodes']):
+        if episode and (str(item['current_season']) not in variant['seasons'] or str(episode) not in variant['episodes']):
             continue
 
         session = None
@@ -279,13 +274,13 @@ def MediaObjectsForURL(url):
         episode = None
         season = None
 
-        if item['url'] == variant['url'] and not url.episode:
+        if item['url'] == variant['url'] and not episode:
             session = JSON.StringFromObject(variant['session'])
         else:
             url_update = variant['url']
-            if url.episode:
+
+            if episode:
                 season = item['current_season']
-                episode = url.episode
 
         play_callback = Callback(Play, url=url_update, season=season, episode=episode, session=session)
 
@@ -341,7 +336,6 @@ class MetaUrl(str):
         self.item = item
         self.episode = int(episode)
         return self
-
 
 @route(constants.PREFIX + '/getmeta')
 def GetMeta(path, episode):
