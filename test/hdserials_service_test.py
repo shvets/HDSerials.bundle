@@ -142,14 +142,14 @@ class HDSerialsServiceTest(unittest.TestCase):
             self.assertTrue(data['thumb'] > 0)
             self.assertTrue(data['title'] > 0)
 
-    def test_parse_page(self):
-        new_series = self.service.get_new_series()
-
-        path = new_series[0]['path']
-
-        result = self.service.parse_page(path)
-
-        print(json.dumps(result, indent=4))
+    # def test_parse_page(self):
+    #     new_series = self.service.get_new_series()
+    #
+    #     path = new_series[0]['path']
+    #
+    #     result = self.service.parse_page(path)
+    #
+    #     print(json.dumps(result, indent=4))
 
     def test_retrieve_urls(self):
         new_series = self.service.get_new_series()
@@ -189,38 +189,38 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         print(play_list)
 
-    def test_get_url(self):
-        new_series = self.service.get_new_series()
-        path = new_series[0]['path']
+    # def test_get_url(self):
+    #     new_series = self.service.get_new_series()
+    #     path = new_series[0]['path']
+    #
+    #     document = self.service.fetch_document(path)
+    #
+    #     media_data = self.service.get_media_data(document)
+    #
+    #     print media_data
+    #
+    #     info = self.service.parse_page(path)
+    #
+    #     print(json.dumps(info, indent=4))
+    #
+    #     urls = self.service.get_urls(info['session']['headers'], info['session']['data'])
+    #
+    #     print(json.dumps(urls, indent=4))
 
-        document = self.service.fetch_document(path)
-
-        media_data = self.service.get_media_data(document)
-
-        print media_data
-
-        info = self.service.parse_page(path)
-
-        print(json.dumps(info, indent=4))
-
-        urls = self.service.get_urls(info['session']['headers'], info['session']['data'])
-
-        print(json.dumps(urls, indent=4))
-
-    def test_get_info_by_url(self):
-        new_series = self.service.get_new_series()
-
-        path = new_series[0]['path']
-
-        data = self.service.get_info_by_url(path, {})
-
-        print(data)
-
-        for key, value in data.iteritems():
-            print key
-            print value
-            # self.assertTrue(len(item['path']) > 0)
-            # self.assertTrue(len(item['title']) > 0)
+    # def test_get_info_by_url(self):
+    #     new_series = self.service.get_new_series()
+    #
+    #     path = new_series[0]['path']
+    #
+    #     data = self.service.get_info_by_url(path, {})
+    #
+    #     print(data)
+    #
+    #     for key, value in data.iteritems():
+    #         print key
+    #         print value
+    #         # self.assertTrue(len(item['path']) > 0)
+    #         # self.assertTrue(len(item['title']) > 0)
 
     def test_get_episode_info(self):
         new_series = self.service.get_new_series()

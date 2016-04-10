@@ -148,7 +148,7 @@ def HandleCategoryItems(category_path, title, page=1):
     return oc
 
 @route(constants.PREFIX + '/container')
-def HandleContainer(path, title, name, thumb, selected_season=None, selected_episode=None, **params):
+def HandleContainer(path, title, name, thumb=None, selected_season=None, selected_episode=None, **params):
     if service.is_serial(path):
         return HandleSeasons(path=path, title=title, name=name, thumb=thumb,
                              selected_season=selected_season, selected_episode=selected_episode)
@@ -164,14 +164,14 @@ def HandleSeasons(path, title, name, thumb, selected_season, selected_episode):
         serial_info = service.get_serial_info(document)
 
         if selected_episode:
-            episode_name = serial_info['episodes'][selected_episode]
+            episode_name = serial_info['episodes'][int(selected_episode)]
 
             oc.add(DirectoryObject(
                 key=Callback(HandleMovie, path=path, title=episode_name, name=episode_name, thumb=thumb),
                 title=unicode(episode_name)
             ))
 
-        season_name = serial_info['seasons'][selected_season]
+        season_name = serial_info['seasons'][int(selected_season)]
 
         oc.add(DirectoryObject(
             key=Callback(HandleEpisodes, path=path, title=season_name, name=season_name,
@@ -182,7 +182,7 @@ def HandleSeasons(path, title, name, thumb, selected_season, selected_episode):
     serial_info = service.get_serial_info(document)
 
     for season in sorted(serial_info['seasons'].keys()):
-        if season != selected_season:
+        if int(season) != int(selected_season):
             season_name = serial_info['seasons'][season]
             rating_key = service.get_episode_url(path, season, 0)
             source_title = unicode(L('Title'))
