@@ -78,7 +78,7 @@ class HDSerialsService(MwService):
             if index >= (page - 1) * per_page and index < page * per_page:
                 link = item.find('a')
 
-                path = link.xpath('@href')[0]
+                path = self.URL + link.xpath('@href')[0]
 
                 if path:
                     title = item.find('h4').text_content()
@@ -111,19 +111,17 @@ class HDSerialsService(MwService):
 
         return {"data": list, "pagination": pagination["pagination"]}
 
-    def get_category_items(self, path, page=1, per_page=20):
+    def get_category_items(self, path, page=1):
         list = []
 
         page_path = self.get_page_path(path, page)
-
-        # todo per_page
 
         document = self.fetch_document(self.URL + page_path)
 
         links = document.xpath('//div[@class="itemList"]//div[@class="catItemBody"]//span[@class="catItemImage"]/a')
 
         for link in links:
-            href = link.xpath('@href')[0]
+            href = self.URL + link.xpath('@href')[0]
             title = link.get('title')
             thumb = link.find('img').get('src')
 
@@ -185,32 +183,47 @@ class HDSerialsService(MwService):
     def get_media_data(self, document):
         data = {}
 
-        # document = self.fetch_document(path)
+        block = document.xpath('//div[@id="k2Container"]')[0]
 
-        frame_block = document.xpath('//div[@id="k2Container"]')[0]
-
-        urls = frame_block.xpath('//div[@class="itemFullText"]//iframe[@src]')
-
-        data['urls'] =  urls
-
-        thumb = frame_block.xpath('//div[@class="itemImageBlock"]//a')[0].get('href')
+        thumb = block.xpath('//div/span[@class="itemImage"]/a/img')[0].get("src")
 
         data['thumb'] = self.URL + thumb
 
-        title_block = frame_block.xpath('//h2[@class="itemTitle"]')[0].text_content().split('/')
+        title_block = block.xpath('//h2[@class="itemTitle"]')[0].text_content().split('/')
 
-        data['title'] = [l.strip() for l in title_block]
+        data['title'] = [l.strip() for l in title_block][0]
 
         data['rating'] = float(re.compile('width\s?:\s?([\d\.]+)').search(
-            frame_block.xpath('//div[@class="itemRatingBlock"]//li[@class="itemCurrentRating"]')[0].get('style')
+            block.xpath('//div[@class="itemRatingBlock"]//li[@class="itemCurrentRating"]')[0].get('style')
         ).group(1)) / 10
 
-        data['meta'] = frame_block.xpath(
-            '//div[@class="itemFullText"]//text() ' +
-            '| //div[@class="itemFullText"]//span ' +
-            '| //div[@class="itemFullText"]//strong ' +
-            '| //div[@class="itemFullText"]//p[@style="text-align: center;"]'
-        )
+        description_block = block.xpath('//div[@class="itemFullText"]/p')
+
+        description = {}
+
+        for elem in description_block[0]:
+            key = unicode(elem.text_content())
+
+            if key == u'Продолжительность':
+                value = elem.tail.strip()[2:]
+            elif elem.tail:
+                value = elem.tail.replace(':', '')
+            else:
+                value = ''
+
+            description[key] = value
+
+        summary = description[u'Описание'] + '\n' + \
+                  u'Страна'  + ': ' + description[u'Страна'] + '\n' + \
+                  u'Жанр' + ': ' + description[u'Жанр'] + '\n' + \
+                  u'Перевод' + ': ' + description[u'Перевод'] + '\n' + \
+                  u'Режиссер' + ': ' + description[u'Режиссер'] + '\n' + \
+                  u'В ролях' + ': ' + description[u'В ролях'] + '\n'
+
+        data['duration'] = self.convert_duration(description[u'Продолжительность'])
+        data['year'] = int(description[u'Год выпуска'])
+        data['tags'] = description[u'Жанр'].replace(',', ', ').split(',')
+        data['summary'] = summary
 
         return data
 
@@ -248,16 +261,16 @@ class HDSerialsService(MwService):
         ret['episodes'] = {}
 
         for item in document.xpath('//select[@id="season"]/option'):
-            value = item.get('value')
+            value = int(item.get('value'))
             ret['seasons'][value] = unicode(item.text_content())
             if item.get('selected'):
-                ret['current_season'] = value
+                ret['current_season'] = int(value)
 
         for item in document.xpath('//select[@id="episode"]/option'):
-            value = item.get('value')
+            value = int(item.get('value'))
             ret['episodes'][value] = unicode(item.text_content())
             if item.get('selected'):
-                ret['current_episode'] = value
+                ret['current_episode'] = int(value)
 
         return ret
 
@@ -503,6 +516,15 @@ class HDSerialsService(MwService):
 
         return new_path
 
+    def is_serial(self, path):
+        document = self.get_movie_document(path)
+
+        content = tostring(document.xpath('body')[0])
+
+        data = self.get_session_data(content)
+
+        return data and data['content_type'] == 'serial'
+
     def get_thumb(self, path):
         if path.find(self.URL) < 0:
             thumb = self.URL + path
@@ -549,3 +571,29 @@ class HDSerialsService(MwService):
             s = s.replace(key + ':', '"' + key + '":')
 
         return s
+
+    def convert_duration(self, s):
+        tokens = s.split(':')
+
+        result = []
+
+        for token in tokens:
+            data = re.search('(\d+)', token)
+
+            if data:
+                result.append(data.group(0))
+
+        if len(result) == 3:
+            hours = int(result[0])
+            minutes = int(result[1])
+            seconds = int(result[2])
+        elif len(result) == 2:
+            hours = int(result[0])
+            minutes = int(result[1])
+            seconds = 0
+        else:
+            hours = 0
+            minutes = int(result[0])
+            seconds = 0
+
+        return hours * 60 * 60 + minutes * 60 + seconds

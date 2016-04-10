@@ -131,18 +131,16 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         path = new_series[0]['path']
 
-        data = self.service.get_media_data(path)
+        document = self.service.fetch_document(path)
 
-        print data
+        data = self.service.get_media_data(document)
+
+        print(json.dumps(data, indent=4))
 
         for key, value in data.iteritems():
-            print key
-            print value
-            # self.assertTrue(len(item['path']) > 0)
-            # self.assertTrue(len(item['title']) > 0)
-
-    def test_get_movie_document(self, path):
-        "http://www.hdserials.tv/Serialy/24-chasa-Prozhivi-esche-odin-den-/-24-Live-Another-Day.html"
+            self.assertTrue(data['rating'] > 0)
+            self.assertTrue(data['thumb'] > 0)
+            self.assertTrue(data['title'] > 0)
 
     def test_parse_page(self):
         new_series = self.service.get_new_series()
