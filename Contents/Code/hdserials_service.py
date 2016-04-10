@@ -9,6 +9,23 @@ from mw_service import MwService
 
 class HDSerialsService(MwService):
     URL = 'http://www.hdserials.tv'
+    KEY_CACHE = 'parse_cache'
+
+    cache = {}
+
+    def load_cache(self, path):
+        result = None
+
+        if self.KEY_CACHE in self.cache:
+            result = self.cache[self.KEY_CACHE]
+
+            if result and 'path' in result and result['path'] == path:
+                return result
+
+        return result
+
+    def save_cache(self, data):
+        self.cache[self.KEY_CACHE] = data
 
     def available(self):
         document = self.fetch_document(self.URL)
@@ -69,29 +86,37 @@ class HDSerialsService(MwService):
 
                     list.append({'path': path, 'title': title, 'thumb': thumb})
 
-        pagination = self.extract_popular_pagination_data(items, page, per_page)
+        pagination = self.extract__pagination_data_from_array(items, page, per_page)
 
         return {"movies": list, "pagination": pagination["pagination"]}
 
-    def get_subcategories(self, path):
+    def get_subcategories(self, path, page=1, per_page=20):
+        page = int(page)
+        per_page = int(per_page)
+
         list = []
 
         document = self.fetch_document(self.URL + path)
 
-        links = document.xpath('//div[@class="itemListSubCategories"]//div[contains(@class, "subCategory")]/h2/a')
+        items = document.xpath('//div[@class="itemListSubCategories"]//div[contains(@class, "subCategory")]/h2/a')
 
-        for link in links:
-            path = link.xpath('@href')[0]
-            title = link.text_content()
+        for index, item in enumerate(items):
+            if index >= (page - 1) * per_page and index < page * per_page:
+                path = item.xpath('@href')[0]
+                title = item.text_content()
 
-            list.append({'path': path, 'title': title})
+                list.append({'path': path, 'title': title})
 
-        return list
+        pagination = self.extract__pagination_data_from_array(items, page, per_page)
 
-    def get_category_items(self, path, page=1):
+        return {"data": list, "pagination": pagination["pagination"]}
+
+    def get_category_items(self, path, page=1, per_page=20):
         list = []
 
         page_path = self.get_page_path(path, page)
+
+        # todo per_page
 
         document = self.fetch_document(self.URL + page_path)
 
@@ -111,6 +136,9 @@ class HDSerialsService(MwService):
     def extract_pagination_data(self, path):
         document = self.fetch_document(self.URL + path)
 
+        page = 1
+        pages = 1
+
         response = {}
 
         pagination_root = document.xpath('//div[@class="k2Pagination"]')
@@ -118,16 +146,15 @@ class HDSerialsService(MwService):
         if pagination_root:
             pagination_block = pagination_root[0]
 
-            counter = pagination_block.xpath('p[@class="counter"]/span')[0].text_content()
+            counter_block = pagination_block.xpath('p[@class="counter"]/span')
 
-            phrase = counter.split(' ')
+            if counter_block:
+                counter = counter_block[0].text_content()
 
-            page = int(phrase[1])
-            pages = int(phrase[3])
+                phrase = counter.split(' ')
 
-        else:
-            page = 1
-            pages = 1
+                page = int(phrase[1])
+                pages = int(phrase[3])
 
         response["pagination"] = {
             "page": page,
@@ -138,7 +165,7 @@ class HDSerialsService(MwService):
 
         return response
 
-    def extract_popular_pagination_data(self, items, page, per_page):
+    def extract__pagination_data_from_array(self, items, page, per_page):
         pages = len(items) / per_page
 
         if len(items) % per_page > 0:
@@ -188,6 +215,9 @@ class HDSerialsService(MwService):
         return data
 
     def retrieve_urls(self, url, season=None, episode=None):
+        if url.find(self.URL) < 0:
+            url = self.URL + url
+
         document = self.get_movie_document(url, season=season, episode=episode)
         content = tostring(document.xpath('body')[0])
 
@@ -252,25 +282,12 @@ class HDSerialsService(MwService):
 
         if 'items' in data:
             for item in data['items']:
-                # print(item['category'])
-                # if item['title'] in item['category']['name']:
-                #     title = u'%s' % item['category']['name']
-                #
-                #     key = '%s?%s' % (
-                #         '/video/hdserials/container',
-                #         urllib.urlencode({'path': item['link']}))
-                # else:
-                #     title = u'%s / %s' % (item['category']['name'], item['title'])
-                #     key = '%s%s' % (self.URL, item['link'])
-
-                title = u'%s / %s' % (item['category']['name'], item['title'])
-                key = '%s%s' % (self.URL, item['link'])
-
+                title = item['category']['name'] + ' / ' + item['title']
+                key = self.URL + item['link']
                 rating_key = item['link']
-
-                thumb = '%s%s' % (self.URL, item['image'])
-
+                thumb = self.URL + item['image']
                 summary = self.to_document(item['introtext']).text_content()
+                path = self.URL + item['link']
 
                 movie = {
                     "key": key,
@@ -278,26 +295,29 @@ class HDSerialsService(MwService):
                     "name": title,
                     "thumb": thumb,
                     "summary": summary,
-                    "path": self.URL + item['link']
+                    "path": path
                  }
 
                 result['movies'].append(movie)
 
         return result
 
-    def parse_page(self, path):
+    def parse_page(self, path, cache=False):
+        if cache:
+            result = self.load_cache(path)
+        else:
+            result = self.parse_page_body(path)
+
+        if cache:
+            self.save_cache(result)
+
+        return result
+
+    def parse_page_body(self, path):
         if self.URL not in path:
             path = self.URL + path
 
         http_headers = {'Referer': path}
-
-        # ret = service.load_cache(path)
-        #
-        # if ret:
-        #     return ret
-
-        #document = self.fetch_document(path)
-        #page = document.xpath('//div[@id="k2Container"]')[0]
 
         document = self.fetch_document(path)
 
@@ -325,7 +345,7 @@ class HDSerialsService(MwService):
             print(e)
             return None
 
-        ret = {
+        result = {
             'path': path,
             'rating': 0.00,
             'thumb': media_data['thumb']
@@ -333,8 +353,8 @@ class HDSerialsService(MwService):
 
         title = media_data['title']
 
-        ret['original_title'] = title.pop() if len(title) > 1 else None
-        ret['title'] = ' / '.join(title)
+        result['original_title'] = title.pop() if len(title) > 1 else None
+        result['title'] = ' / '.join(title)
 
         meta = media_data['meta']
 
@@ -393,15 +413,13 @@ class HDSerialsService(MwService):
 
         if data['session'] == 'external':
             if len(data['variants']) > 1:
-                data['seasons'] = {'1': ret['title']}
+                data['seasons'] = {'1': result['title']}
                 data['current_season'] = 1
                 data['episodes'] = data['variants']
 
-        ret.update(data)
+        result.update(data)
 
-        # service.save_cache(ret)
-
-        return ret
+        return result
 
     def get_info_by_url(self, url, http_headers, parent=None):
         if not re.compile('http://moonwalk\.cc/').match(url):

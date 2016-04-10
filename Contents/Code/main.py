@@ -3,6 +3,7 @@
 import constants
 import util
 import pagination
+import history
 from lxml.etree import tostring
 from flow_builder import FlowBuilder
 
@@ -64,10 +65,35 @@ def HandleCategories():
         title = item['title']
         path = item['path']
 
+        if path == '/Serialy.html':
+            oc.add(DirectoryObject(
+                key=Callback(HandleSerials, category_path=path, title=title),
+                title=unicode(title)
+            ))
+        else:
+            oc.add(DirectoryObject(
+                key=Callback(HandleCategory, category_path=path, title=title),
+                title=unicode(title)
+            ))
+
+    return oc
+
+@route(constants.PREFIX + '/serials')
+def HandleSerials(category_path, title, page=1):
+    oc = ObjectContainer(title2=unicode(title))
+
+    response = service.get_subcategories(category_path, page)
+
+    for item in response['data']:
+        title = item['title']
+        path = item['path']
+
         oc.add(DirectoryObject(
-            key=Callback(HandleCategory, category_path=path, title=title),
+            key=Callback(HandleCategoryItems, category_path=path, title=title),
             title=unicode(title)
         ))
+
+    pagination.append_controls(oc, response, page=page, callback=HandleSerials, category_path=category_path, title=title)
 
     return oc
 
@@ -159,101 +185,97 @@ def HandleContainer(path, title, name, thumb=None, season=None, episode=None, **
         for s in sorted(serial_info['seasons'].keys()):
             if s != season:
                 season_name = serial_info['seasons'][s]
+                rating_key = service.get_episode_url(path, s, 0)
+                source_title = unicode(L('Title'))
 
-                oc.add(DirectoryObject(
+                oc.add(SeasonObject(
                     key=Callback(HandleEpisodes, path=path, title=name, name=season_name, thumb=thumb, season=s),
-                    title=unicode(season_name)
+                    title=unicode(season_name),
+                    rating_key=rating_key,
+                    index=int(s),
+                    source_title=source_title,
+                    thumb=thumb,
+                    # summary=data['summary']
                 ))
 
+        media_info = {
+            "path": path,
+            "title": title,
+            "name": title,
+            "thumb": thumb
+        }
 
-        # service.queue.append_queue_controls(oc,
-        #                                     {
-        #                                         "path": path,
-        #                                         "title": title,
-        #                                         "name": title,
-        #                                         "thumb": thumb
-        #                                     },
-        #                                     add_bookmark_handler=HandleAddBookmark,
-        #                                     remove_bookmark_handler=HandleRemoveBookmark
-        #                                     )
+        service.queue.append_queue_controls(oc, media_info,
+            add_bookmark_handler=HandleAddBookmark,
+            remove_bookmark_handler=HandleRemoveBookmark
+        )
 
         return oc
 
     else:
         return HandleMovie(path=path, title=title, name=name, thumb=thumb)
 
-# @route(constants.PREFIX + '/seasons')
-# def HandleSeasons(path):
-#     data = service.parse_page(path)
-#
-#     if not data:
-#         return util.no_contents()
-#
-#     if len(data['seasons']) == 1:
-#         return HandleEpisodes(path, data['current_season'])
-#
-#     oc = ObjectContainer(
-#         title2=data['title'],
-#         content=ContainerContent.Seasons,
-#     )
-#
-#     seasons = data['seasons'].keys()
-#
-#     seasons.sort(key=lambda k: int(k))
-#
-#     for season in seasons:
-#         title = data['seasons'][season]
-#         source_title = unicode(L('Title'))
-#         rating_key = service.get_episode_url(data['url'], season, 0)
-#         thumb = service.get_thumb(data['thumb'])
-#
-#         oc.add(SeasonObject(
-#             key=Callback(HandleEpisodes, path=path, season=season),
-#             rating_key=rating_key,
-#             index=int(season),
-#             title=unicode(title),
-#             source_title=source_title,
-#             thumb=thumb,
-#             # summary=data['summary']
-#         ))
-#
-#     return oc
-
-@route(constants.PREFIX + '/episodes')
+@route(constants.PREFIX + '/episodes', container=bool)
 def HandleEpisodes(path, title, name, thumb, season, container=False):
-    data = service.parse_page(path)
+    # data = service.parse_page(path)
+    #
+    # if not data:
+    #     return util.no_contents()
+    #
+    # oc = ObjectContainer(
+    #     title2=unicode(data['title'] + " / " + data['seasons'][season]),
+    #     content=ContainerContent.Episodes
+    # )
+    #
+    # episodes = data['episodes'].keys()
+    # episodes.sort(key=lambda k: int(k))
+    #
+    # thumb = service.get_thumb(data['thumb'])
+    #
+    # for episode in episodes:
+    #     title = data['episodes'][episode]
+    #
+    #     oc.add(DirectoryObject(
+    #         key=Callback(HandleMovie, path=path, title=title, name=title, thumb=thumb, season=season, episode=episode),
+    #         title=unicode(title),
+    #         thumb=thumb
+    #     ))
 
-    if not data:
-        return util.no_contents()
+    oc = ObjectContainer(title2=unicode(title + ': ' + name))
 
-    oc = ObjectContainer(
-        title2=unicode(data['title'] + " / " + data['seasons'][season]),
-        content=ContainerContent.Episodes
+    document = service.get_movie_document(path, season, 1)
+    serial_info = service.get_serial_info(document)
+
+    for episode in sorted(serial_info['episodes'].keys()):
+        episode_name = serial_info['episodes'][episode]
+        Log(episode_name)
+
+        key = Callback(HandleMovie, path=path,
+                       title=unicode(title + ': ' + name + ': ' + episode_name),
+                       name=title + ': ' + name,
+                       thumb=thumb,
+                       season=season, episode=episode, container=container)
+
+        oc.add(DirectoryObject(key=key, title=unicode(episode_name)))
+
+    media_info = {
+        "path": path,
+        "title": title,
+        "name": title + ': ' + name,
+        "thumb": thumb,
+        "season": season
+    }
+
+    service.queue.append_queue_controls(oc, media_info,
+        add_bookmark_handler=HandleAddBookmark,
+        remove_bookmark_handler=HandleRemoveBookmark
     )
-
-    episodes = data['episodes'].keys()
-    episodes.sort(key=lambda k: int(k))
-
-    thumb = service.get_thumb(data['thumb'])
-
-    for episode in episodes:
-        title = data['episodes'][episode]
-
-        oc.add(DirectoryObject(
-            key=Callback(HandleMovie, path=path, title=title, name=title, thumb=thumb, season=season, episode=episode),
-            title=unicode(title),
-            thumb=thumb
-        ))
 
     return oc
 
 @route(constants.PREFIX + '/movie', container=bool)
-def HandleMovie(path, title, name, thumb=None, season=None, episode=None, container=False, **params):
-    if path.find(service.URL) < 0:
-        path = service.URL + path
-
+def HandleMovie(path, title, name, thumb, season=None, episode=None, container=False, **params):
     urls = service.retrieve_urls(path, season=season, episode=episode)
-
 
     if not urls:
         return util.no_contents()
@@ -267,29 +289,109 @@ def HandleMovie(path, title, name, thumb=None, season=None, episode=None, contai
             "episode": episode
         }
 
+        Log(media_info)
+
         oc = ObjectContainer(title2=unicode(name))
 
         oc.add(
             MetadataObjectForURL(path=path, title=title, name=name, thumb=thumb, season=season, episode=episode,
                                  urls=urls))
 
-        # if str(container) == 'False':
-        #     history.push_to_history(media_info)
-        #     service.queue.append_queue_controls(oc, media_info,
-        #                                         add_bookmark_handler=HandleAddBookmark,
-        #                                         remove_bookmark_handler=HandleRemoveBookmark
-        #                                          )
+        if str(container) == 'False':
+            history.push_to_history(media_info)
+            service.queue.append_queue_controls(oc, media_info,
+                add_bookmark_handler=HandleAddBookmark,
+                remove_bookmark_handler=HandleRemoveBookmark
+        )
 
         return oc
 
+@route(constants.PREFIX + '/search')
+def HandleSearch(query=None, page=1):
+    oc = ObjectContainer(title2=unicode(L('Search')))
+
+    response = service.search(query=query)
+
+    for movie in response['movies']:
+        name = movie['name']
+        thumb = movie['thumb']
+        path = movie['path']
+
+        oc.add(DirectoryObject(
+            key=Callback(HandleContainer, path=path, title=name, name=name, thumb=thumb),
+            title=unicode(name),
+            thumb=thumb
+        ))
+
+    pagination.append_controls(oc, response, page=page, callback=HandleSearch, query=query)
+
+    return oc
+
+@route(constants.PREFIX + '/history')
+def HandleHistory():
+    history_object = history.load_history()
+
+    oc = ObjectContainer(title2=unicode(L('History')))
+
+    if history_object:
+        for item in sorted(history_object.values(), key=lambda k: k['time'], reverse=True):
+            path = item['path']
+            title = item['title']
+            thumb = service.get_thumb(item['thumb'])
+
+            oc.add(DirectoryObject(
+                key=Callback(HandleContainer, path=path, title=title, name=title, thumb=thumb),
+                title=unicode(title),
+                thumb=thumb
+            ))
+
+    return oc
+
+@route(constants.PREFIX + '/queue')
+def HandleQueue():
+    oc = ObjectContainer(title2=unicode(L('Queue')))
+
+    for item in service.queue.data:
+        if 'episode' in item:
+            oc.add(DirectoryObject(
+                key=Callback(HandleMovie, **item),
+                title=unicode(item['title']),
+                thumb=item['thumb']
+            ))
+        elif 'season' in item:
+            oc.add(DirectoryObject(
+                key=Callback(HandleEpisodes, **item),
+                title=unicode(item['name']),
+                thumb=item['thumb']
+            ))
+        else:
+            oc.add(DirectoryObject(
+                key=Callback(HandleContainer, **item),
+                title=unicode(item['title']),
+                thumb=item['thumb']
+            ))
+
+    return oc
+
+@route(constants.PREFIX + '/add_bookmark')
+def HandleAddBookmark(**params):
+    service.queue.add_bookmark(params)
+
+    return ObjectContainer(header=unicode(L(params['title'])), message=unicode(L('Bookmark Added')))
+
+@route(constants.PREFIX + '/remove_bookmark')
+def HandleRemoveBookmark(**params):
+    service.queue.remove_bookmark(params)
+
+    return ObjectContainer(header=unicode(L(params['title'])), message=unicode(L('Bookmark Removed')))
+
 def MetadataObjectForURL(path, title, name, thumb, season, episode, urls):
-    video = MovieObject(title=title)
+    video = MovieObject(title=unicode(title))
 
     if path.find(service.URL) < 0:
         path = service.URL + path
 
     document = service.fetch_document(path)
-
     data = service.get_media_data(document)
 
     # info = service.parse_page(path)
@@ -297,7 +399,7 @@ def MetadataObjectForURL(path, title, name, thumb, season, episode, urls):
 
     video.rating_key = 'rating_key'
     video.rating = data['rating']
-    video.thumb = service.get_thumb(data['thumb'])
+    video.thumb = data['thumb']
     # video.year = data['year']
     # video.tags = data['tags']
     # video.duration = data['duration'] * 60 * 1000
@@ -325,27 +427,6 @@ def MediaObjectsForURL(urls):
 
     return items
 
-@route(constants.PREFIX + '/search')
-def HandleSearch(query=None, page=1):
-    oc = ObjectContainer(title2=unicode(L('Search')))
-
-    response = service.search(query=query)
-
-    for movie in response['movies']:
-        name = movie['name']
-        thumb = service.get_thumb(movie['thumb'])
-        path = movie['path']
-
-        oc.add(DirectoryObject(
-            key=Callback(HandleContainer, path=path, title=name, name=name, thumb=thumb),
-            title=unicode(name),
-            thumb=thumb
-        ))
-
-    pagination.append_controls(oc, response, page=page, callback=HandleSearch, query=query)
-
-    return oc
-
 @indirect
 @route(constants.PREFIX + '/play_video')
 def PlayVideo(url):
@@ -359,49 +440,3 @@ def PlayVideo(url):
 @route(constants.PREFIX + '/play_list.m3u8')
 def PlayList(url):
     return service.get_play_list(url)
-
-@route(constants.PREFIX + '/history')
-def History():
-    history_object = history.load_history()
-
-    oc = ObjectContainer(title2=u'История')
-
-    if history_object:
-        for item in sorted(history_object.values(), key=lambda k: k['time'], reverse=True):
-            path = item['path']
-            title = item['title']
-            thumb = service.get_thumb(item['thumb'])
-
-            oc.add(DirectoryObject(
-                key=Callback(HandleContainer, path=path, title=title, name=title, thumb=thumb),
-                title=unicode(title),
-                thumb=thumb
-            ))
-
-    return oc
-
-@route(constants.PREFIX + '/queue')
-def HandleQueue(title):
-    oc = ObjectContainer(title2=unicode(title))
-
-    for item in service.queue.data:
-        if 'episode' in item:
-            oc.add(DirectoryObject(
-                key=Callback(HandleMovie, **item),
-                title=unicode(item['title']),
-                thumb=item['thumb']
-            ))
-        elif 'season' in item:
-            oc.add(DirectoryObject(
-                key=Callback(HandleEpisodes, **item),
-                title=unicode(item['name']),
-                thumb=item['thumb']
-            ))
-        else:
-            oc.add(DirectoryObject(
-                key=Callback(HandleContainer, **item),
-                title=unicode(item['title']),
-                thumb=item['thumb']
-            ))
-
-    return oc

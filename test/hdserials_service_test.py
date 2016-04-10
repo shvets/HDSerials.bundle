@@ -103,6 +103,29 @@ class HDSerialsServiceTest(unittest.TestCase):
         self.assertEqual(pagination['has_previous'], True)
         self.assertEqual(pagination['page'], 2)
 
+    def test_pagination_in_subcategories(self):
+        path = '/Serialy.html'
+
+        result = self.service.get_subcategories(path=path, page=1)
+
+        #print(json.dumps(result, indent=4))
+
+        pagination = result['pagination']
+
+        self.assertEqual(pagination['has_next'], True)
+        self.assertEqual(pagination['has_previous'], False)
+        self.assertEqual(pagination['page'], 1)
+
+        result = self.service.get_subcategories(path=path, page=2)
+
+        print(json.dumps(result, indent=4))
+
+        pagination = result['pagination']
+
+        self.assertEqual(pagination['has_next'], True)
+        self.assertEqual(pagination['has_previous'], True)
+        self.assertEqual(pagination['page'], 2)
+
     def test_get_media_data(self):
         new_series = self.service.get_new_series()
 
@@ -117,6 +140,9 @@ class HDSerialsServiceTest(unittest.TestCase):
             print value
             # self.assertTrue(len(item['path']) > 0)
             # self.assertTrue(len(item['title']) > 0)
+
+    def test_get_movie_document(self, path):
+        "http://www.hdserials.tv/Serialy/24-chasa-Prozhivi-esche-odin-den-/-24-Live-Another-Day.html"
 
     def test_parse_page(self):
         new_series = self.service.get_new_series()
@@ -135,6 +161,15 @@ class HDSerialsServiceTest(unittest.TestCase):
         urls = self.service.retrieve_urls(path)
 
         print(json.dumps(urls, indent=4))
+
+    # def test_retrieve_serials_url(self):
+    #     serial_url = 'http://www.hdserials.tv/Serialy/24-chasa-Prozhivi-esche-odin-den-/-24-Live-Another-Day.html'
+    #
+    #     document = self.service.get_movie_document(serial_url)
+    #
+    #     serial_info = self.service.get_serial_info(document)
+    #
+    #     print(json.dumps(serial_info, indent=4))
 
     def test_retrieve_episode_urls(self):
         new_series = self.service.get_new_series()

@@ -8,5 +8,10 @@
   "Popular": "Popular",
   "Categories": "Categories",
   "All": "All",
-  "episode": "episode"
+  "episode": "episode",
+
+  "Add Bookmark": "Add Bookmark",
+  "Remove Bookmark": "Remove Bookmark",
+  "Bookmark Added": "Bookmark Added.",
+  "Bookmark Removed": "Bookmark Removed."
 }
