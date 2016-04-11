@@ -369,18 +369,30 @@ def HandleRemoveBookmark(**params):
     return ObjectContainer(header=unicode(L(params['title'])), message=unicode(L('Bookmark Removed')))
 
 def MetadataObjectForURL(path, title, name, thumb, season, episode, urls):
-    video = MovieObject(title=unicode(title))
+    params = {}
 
     document = service.fetch_document(path)
     data = service.get_media_data(document)
 
-    video.rating_key = 'rating_key'
+    if episode:
+        media_type = 'episode'
+        params['index'] = int(episode)
+        params['season'] = int(season)
+        params['content_rating'] = data['rating']
+        # show=show,
+    else:
+        media_type = 'movie'
+        params['year'] = data['year']
+
+    video = builder.build_metadata_object(media_type=media_type, **params)
+
+    video.title = title
+    video.rating_key = service.get_episode_url(path, season, 0)
     video.rating = data['rating']
     video.thumb = data['thumb']
-    video.year = data['year']
     video.tags = data['tags']
-    video.duration = data['duration'] * 1000
-    video.summary = data['summary']
+    video.duration = data['duration'] * 60 * 1000
+    video.summary = data['description']
 
     video.key = Callback(HandleMovie, path=path, title=title, name=name, thumb=thumb,
                          season=season, episode=episode, container=True)
