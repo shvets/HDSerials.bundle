@@ -88,9 +88,12 @@ def HandleSerials(category_path, title, page=1):
         title = item['title']
         path = item['path']
 
+        #thumb = service.URL + service.fetch_document(service.URL + path).xpath('//div[@class="catItemImageBlock"]//span/a/img')[0].get('src')
+
         oc.add(DirectoryObject(
             key=Callback(HandleCategoryItems, category_path=path, title=title),
-            title=unicode(title)
+            title=unicode(title),
+            thumb=R(constants.ICON)
         ))
 
     pagination.append_controls(oc, response, page=page, callback=HandleSerials, category_path=category_path, title=title)
@@ -127,35 +130,46 @@ def HandleCategory(category_path, title):
 
 @route(constants.PREFIX + '/category_items')
 def HandleCategoryItems(category_path, title, page=1):
-    oc = ObjectContainer(title2=unicode(title))
-
     response = service.get_category_items(category_path, page)
 
-    if response['movies']:
-        for item in response['movies']:
-            title = item['title']
-            path = item['path']
-            thumb = service.get_thumb(item['thumb'])
+    if len(response['movies']) == 1:
+        item = response['movies'][0]
 
-            oc.add(DirectoryObject(
-                key=Callback(HandleContainer, path=path, title=title, name=title, thumb=thumb),
-                title=unicode(title),
-                thumb=thumb
-            ))
+        title = item['title']
+        path = item['path']
+        thumb = service.get_thumb(item['thumb'])
 
-        pagination.append_controls(oc, response, page=page, callback=HandleCategoryItems, title=title, category_path=category_path)
+        #return HandleContainer(path=path, title=title, name=title, thumb=thumb)
+        return HandleSeasons(path=path, title=title, name=title, thumb=thumb)
+    else:
+        oc = ObjectContainer(title2=unicode(title))
 
-    return oc
+        if response['movies']:
+            for item in response['movies']:
+                title = item['title']
+                path = item['path']
+                thumb = service.get_thumb(item['thumb'])
+
+                oc.add(DirectoryObject(
+                    key=Callback(HandleContainer, path=path, title=title, name=title, thumb=thumb),
+                    title=unicode(title),
+                    thumb=thumb
+                ))
+
+            pagination.append_controls(oc, response, page=page, callback=HandleCategoryItems, title=title,
+                                       category_path=category_path)
+
+        return oc
 
 @route(constants.PREFIX + '/container')
 def HandleContainer(path, title, name, thumb=None, selected_season=None, selected_episode=None, **params):
-    if service.is_serial(path):
-        return HandleSeasons(path=path, title=title, name=name, thumb=thumb,
-                             selected_season=selected_season, selected_episode=selected_episode)
-    else:
-        return HandleMovie(path=path, title=title, name=name, thumb=thumb)
+    # if service.is_serial(path):
+    #     return HandleSeasons(path=path, title=title, name=name, thumb=thumb,
+    #                          selected_season=selected_season, selected_episode=selected_episode)
+    # else:
+    return HandleMovie(path=path, title=title, name=name, thumb=thumb)
 
-def HandleSeasons(path, title, name, thumb, selected_season, selected_episode):
+def HandleSeasons(path, title, name, thumb, selected_season=None, selected_episode=None):
     oc = ObjectContainer(title2=unicode(title))
 
     document = service.get_movie_document(path)
@@ -182,7 +196,7 @@ def HandleSeasons(path, title, name, thumb, selected_season, selected_episode):
     serial_info = service.get_serial_info(document)
 
     for season in sorted(serial_info['seasons'].keys()):
-        if int(season) != int(selected_season):
+        if not selected_season or int(selected_season) != int(season):
             season_name = serial_info['seasons'][season]
             rating_key = service.get_episode_url(path, season, 0)
             source_title = unicode(L('Title'))
@@ -324,19 +338,19 @@ def HandleQueue():
         if 'episode' in item:
             oc.add(DirectoryObject(
                 key=Callback(HandleMovie, **item),
-                title=unicode(item['title']),
+                title=service.sanitize(item['title']),
                 thumb=item['thumb']
             ))
         elif 'season' in item:
             oc.add(DirectoryObject(
                 key=Callback(HandleEpisodes, **item),
-                title=unicode(item['name']),
+                title=service.sanitize(item['title']),
                 thumb=item['thumb']
             ))
         else:
             oc.add(DirectoryObject(
                 key=Callback(HandleContainer, **item),
-                title=unicode(item['title']),
+                title=service.sanitize(item['title']),
                 thumb=item['thumb']
             ))
 

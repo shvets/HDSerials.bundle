@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import urllib
 import re
 import json
 from lxml.etree import tostring
@@ -102,10 +101,10 @@ class HDSerialsService(MwService):
 
         for index, item in enumerate(items):
             if index >= (page - 1) * per_page and index < page * per_page:
-                path = item.xpath('@href')[0]
+                href = item.xpath('@href')[0]
                 title = item.text_content()
 
-                list.append({'path': path, 'title': title})
+                list.append({'path': href, 'title': title})
 
         pagination = self.extract__pagination_data_from_array(items, page, per_page)
 
@@ -315,173 +314,6 @@ class HDSerialsService(MwService):
 
         return result
 
-    # def parse_page(self, path, cache=False):
-    #     if cache:
-    #         result = self.load_cache(path)
-    #     else:
-    #         result = self.parse_page_body(path)
-    #
-    #     if cache:
-    #         self.save_cache(result)
-    #
-    #     return result
-
-    # def parse_page_body(self, path):
-    #     if self.URL not in path:
-    #         path = self.URL + path
-    #
-    #     http_headers = {'Referer': path}
-    #
-    #     document = self.fetch_document(path)
-    #
-    #     media_data = self.get_media_data(document)
-    #
-    #     data = {'variants': {}}
-    #
-    #     try:
-    #         for url in media_data['urls']:
-    #             variant = self.get_info_by_url(url.get('src'), http_headers)
-    #
-    #             if variant:
-    #                 data['variants'][variant['url']] = variant
-    #                 if 'session' not in data:
-    #                     data.update(variant)
-    #                     if 'seasons' in data:
-    #                         data['seasons'] = variant['seasons'].copy()
-    #                 else:
-    #                     if 'seasons' in variant:
-    #                         data['seasons'].update(variant['seasons'])
-    #
-    #         if len(data['variants']) == 0:
-    #             return None
-    #     except Exception as e:
-    #         print(e)
-    #         return None
-    #
-    #     result = {
-    #         'path': path,
-    #         'rating': 0.00,
-    #         'thumb': media_data['thumb']
-    #     }
-    #
-    #     title = media_data['title']
-    #
-    #     result['original_title'] = title.pop() if len(title) > 1 else None
-    #     result['title'] = ' / '.join(title)
-    #
-    #     meta = media_data['meta']
-    #
-    #     tmap = {
-    #         u'Описание': 'summary',
-    #         u'Год выпуска': 'year',
-    #         u'Страна': 'countries',
-    #         u'Жанр': 'genres',
-    #         u'Продолжительность': 'duration',
-    #         u'Режиссер': 'directors',
-    #         u'В ролях': 'roles',
-    #     }
-    #
-    #     current = None
-    #     variants_names = []
-    #     for desc in meta:
-    #         if not isinstance(desc, basestring):
-    #             if desc.tag == 'p' and u'Перевод' in desc.text_content():
-    #                 variants_names.append(desc.text_content())
-    #                 current = None
-    #             continue
-    #         if not desc:
-    #             continue
-    #
-    #         if desc in tmap:
-    #             current = desc
-    #         elif current:
-    #             if desc[:1] == ':':
-    #                 desc = desc[2:]
-    #
-    #             if tmap[current] in data:
-    #                 data[tmap[current]] = data[tmap[current]] + ' ' + unicode(desc)
-    #             else:
-    #                 data[tmap[current]] = unicode(desc)
-    #
-    #     for current in ('countries', 'genres', 'directors', 'roles'):
-    #         if current in data:
-    #             data[current] = [l.strip() for l in data[current].split(',')]
-    #
-    #     # TODO
-    #     data['duration'] = None
-    #     # data['duration'] = Datetime.MillisecondsFromString(data['duration'])
-    #
-    #     data['rating'] = media_data['rating']
-    #
-    #     if 'year' in data:
-    #         if '-' in data['year']:
-    #             data['year'] = data['year'].split('-')[0]
-    #
-    #         data['year'] = int(data['year'])
-    #
-    #     for k in data['variants']:
-    #         data['variants'][k]['variant_title'] = unicode(
-    #             variants_names.pop(0)
-    #         ) if variants_names else ''
-    #
-    #     if data['session'] == 'external':
-    #         if len(data['variants']) > 1:
-    #             data['seasons'] = {'1': result['title']}
-    #             data['current_season'] = 1
-    #             data['episodes'] = data['variants']
-    #
-    #     result.update(data)
-    #
-    #     return result
-
-    # def get_info_by_url(self, url, http_headers, parent=None):
-    #     if not re.compile('http://moonwalk\.cc/').match(url):
-    #         return {
-    #             'url': url.replace('vkontakte.ru', 'vk.com'),
-    #             'session': 'external',
-    #         }
-    #
-    #     headers = {}
-    #     if parent:
-    #         headers['Referer'] = parent
-    #         if 'Referer' in http_headers:
-    #             url = '%s&%s' % (
-    #                 url,
-    #                 urllib.urlencode({'referer': http_headers['Referer']})
-    #             )
-    #
-    #     elif 'Referer' in http_headers:
-    #         headers['Referer'] = http_headers['Referer']
-    #
-    #     response = self.http_request(url)
-    #     content = response.read()
-    #
-    #     session_data = {
-    #         'data': self.get_session_data(content),
-    #         'headers': {
-    #             'X-Requested-With': 'XMLHttpRequest',
-    #             'Referer': url,
-    #             'Content-Data': self.get_content_data(content),
-    #             'Cookie': None
-    #             # 'Cookie': self.get_cookies(response)
-    #         },
-    #     }
-    #
-    #     ret = {}
-    #     ret['url'] = parent if parent else url
-    #
-    #     # if ret['session']['values']['content_type'] == 'serial':
-    #     if session_data['data']['content_type'] == 'serial':
-    #         # response = self.http_request(url)
-    #         # document = self.to_document(response.read())
-    #         document = self.fetch_document(url)
-    #
-    #         ret = dict(self.get_serial_info(document), **ret)
-    #
-    #     ret['session'] = session_data
-    #
-    #     return ret
-
     def get_gateway_url(self, document):
         gateway_url = None
 
@@ -571,6 +403,9 @@ class HDSerialsService(MwService):
             s = s.replace(key + ':', '"' + key + '":')
 
         return s
+
+    def sanitize(self, name):
+        return name[0:35]
 
     def convert_duration(self, s):
         tokens = s.split(':')
