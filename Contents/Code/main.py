@@ -163,11 +163,11 @@ def HandleCategoryItems(category_path, title, page=1):
 
 @route(constants.PREFIX + '/container')
 def HandleContainer(path, title, name, thumb=None, selected_season=None, selected_episode=None, **params):
-    # if service.is_serial(path):
-    #     return HandleSeasons(path=path, title=title, name=name, thumb=thumb,
-    #                          selected_season=selected_season, selected_episode=selected_episode)
-    # else:
-    return HandleMovie(path=path, title=title, name=name, thumb=thumb)
+    if service.is_serial(path):
+        return HandleSeasons(path=path, title=title, name=name, thumb=thumb,
+                             selected_season=selected_season, selected_episode=selected_episode)
+    else:
+        return HandleMovie(path=path, title=title, name=name, thumb=thumb)
 
 def HandleSeasons(path, title, name, thumb, selected_season=None, selected_episode=None):
     oc = ObjectContainer(title2=unicode(title))
@@ -199,14 +199,14 @@ def HandleSeasons(path, title, name, thumb, selected_season=None, selected_episo
         if not selected_season or int(selected_season) != int(season):
             season_name = serial_info['seasons'][season]
             rating_key = service.get_episode_url(path, season, 0)
-            source_title = unicode(L('Title'))
+            # source_title = unicode(L('Title'))
 
             oc.add(SeasonObject(
                 key=Callback(HandleEpisodes, path=path, title=name, name=season_name, thumb=thumb, season=season),
                 title=unicode(season_name),
                 rating_key=rating_key,
                 index=int(season),
-                source_title=source_title,
+                # source_title=source_title,
                 thumb=thumb,
                 # summary=data['summary']
             ))
@@ -391,8 +391,8 @@ def MetadataObjectForURL(path, title, name, thumb, season, episode, urls):
     video.rating = data['rating']
     video.thumb = data['thumb']
     video.tags = data['tags']
-    video.duration = data['duration'] * 60 * 1000
-    video.summary = data['description']
+    video.duration = data['duration'] * 1000
+    video.summary = data['summary']
 
     video.key = Callback(HandleMovie, path=path, title=title, name=name, thumb=thumb,
                          season=season, episode=episode, container=True)
@@ -409,7 +409,7 @@ def MediaObjectsForURL(urls):
 
         play_callback = Callback(PlayVideo, url=url)
 
-        media_object = builder.build_media_object(play_callback, video_resolution=item['width'])
+        media_object = builder.build_media_object(play_callback, video_resolution=item['width'], bitrate=item['bandwidth'])
 
         items.append(media_object)
 

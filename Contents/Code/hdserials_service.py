@@ -3,6 +3,7 @@
 import re
 import json
 from lxml.etree import tostring
+from operator import itemgetter
 
 from mw_service import MwService
 
@@ -220,7 +221,12 @@ class HDSerialsService(MwService):
                   u'В ролях' + ': ' + description[u'В ролях'] + '\n'
 
         data['duration'] = self.convert_duration(description[u'Продолжительность'])
-        data['year'] = int(description[u'Год выпуска'])
+
+        try:
+            data['year'] = int(description[u'Год выпуска'])
+        except:
+            data['year'] = int(description[u'Год выпуска'][0:4])
+
         data['tags'] = description[u'Жанр'].replace(',', ', ').split(',')
         data['summary'] = summary
 
@@ -241,7 +247,7 @@ class HDSerialsService(MwService):
             'Content-Data': self.get_content_data(content)
         }
 
-        return self.get_urls(headers, data)
+        return sorted(self.get_urls(headers, data), key=itemgetter('bandwidth'), reverse=True)
 
     def get_movie_document(self, url, season=None, episode=None):
         gateway_url = self.get_gateway_url(self.fetch_document(url))
@@ -408,6 +414,11 @@ class HDSerialsService(MwService):
         return name[0:35]
 
     def convert_duration(self, s):
+        s = s.replace('~', '').strip()
+
+        if s.find('мин'):
+            s = "00:" + s.replace('мин', '').replace(' ', '') + ":00"
+
         tokens = s.split(':')
 
         result = []

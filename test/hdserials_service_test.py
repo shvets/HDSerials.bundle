@@ -184,6 +184,13 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         print(json.dumps(result, indent=4))
 
+    def test_convert_duration(self):
+        text = ' ~  22 мин'
+
+        result = self.service.convert_duration(text)
+
+        print result
+
     def json_test(self):
         l = '''
 {
