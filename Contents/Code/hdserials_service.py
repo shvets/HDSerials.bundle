@@ -191,34 +191,57 @@ class HDSerialsService(MwService):
 
         title_block = block.xpath('//h2[@class="itemTitle"]')[0].text_content().split('/')
 
-        data['title'] = [l.strip() for l in title_block][0]
+        titles = [l.strip() for l in title_block]
+        data['title'] = titles[0] + ' / ' + titles[1]
 
         data['rating'] = float(re.compile('width\s?:\s?([\d\.]+)').search(
             block.xpath('//div[@class="itemRatingBlock"]//li[@class="itemCurrentRating"]')[0].get('style')
         ).group(1)) / 10
 
-        description_block = block.xpath('//div[@class="itemFullText"]/p')
+        description_block = block.xpath('//div[@class="itemFullText"]')[0]
 
         description = {}
 
-        for elem in description_block[0]:
+        for elem in description_block.xpath('p')[0]:
             key = unicode(elem.text_content())
 
-            if key == u'Продолжительность':
-                value = elem.tail.strip()[2:]
-            elif elem.tail:
-                value = elem.tail.replace(':', '')
-            else:
-                value = ''
+            if len(key.strip()) > 0:
+                if key == u'Продолжительность':
+                    value = elem.tail.strip()[2:]
+                elif elem.tail:
+                    value = elem.tail.replace(':', '')
+                else:
+                    value = ''
 
-            description[key] = value
+                description[key] = value
+
+        if len(description) == 0:
+            text = description_block.text_content()
+
+            text, roles = text.split(u'В ролях:')
+            text, director = text.split(u'Режиссер:')
+            text, translation = text.split(u'Перевод:')
+            text, duration = text.split(u'Продолжительность:')
+            text, genre = text.split(u'Жанр:')
+            text, country = text.split(u'Страна:')
+            text, year = text.split(u'Год выпуска:')
+            _, text = text.split(u'Описание:')
+
+            description[u'Описание'] = text
+            description[u'Страна'] = country
+            description[u'Жанр'] = genre
+            description[u'Перевод'] = translation
+            description[u'Режиссер'] = director
+            description[u'В ролях'] = roles
+            description[u'Продолжительность'] = duration
+            description[u'Год выпуска'] = year
 
         summary = description[u'Описание'] + '\n' + \
-                  u'Страна'  + ': ' + description[u'Страна'] + '\n' + \
-                  u'Жанр' + ': ' + description[u'Жанр'] + '\n' + \
-                  u'Перевод' + ': ' + description[u'Перевод'] + '\n' + \
-                  u'Режиссер' + ': ' + description[u'Режиссер'] + '\n' + \
-                  u'В ролях' + ': ' + description[u'В ролях'] + '\n'
+            u'Страна'  + ': ' + description[u'Страна'] + '\n' + \
+            u'Жанр' + ': ' + description[u'Жанр'] + '\n' + \
+            u'Перевод' + ': ' + description[u'Перевод'] + '\n' + \
+            u'Режиссер' + ': ' + description[u'Режиссер'] + '\n' + \
+            u'В ролях' + ': ' + description[u'В ролях'] + '\n'
 
         data['duration'] = self.convert_duration(description[u'Продолжительность'])
 
@@ -416,8 +439,8 @@ class HDSerialsService(MwService):
     def convert_duration(self, s):
         s = s.replace('~', '').strip()
 
-        if s.find('мин'):
-            s = "00:" + s.replace('мин', '').replace(' ', '') + ":00"
+        if s.find(u'мин'):
+            s = "00:" + s.replace(u'мин', '').replace(' ', '') + ":00"
 
         tokens = s.split(':')
 

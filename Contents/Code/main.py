@@ -186,11 +186,14 @@ def HandleSeasons(path, title, name, thumb, selected_season=None, selected_episo
             ))
 
         season_name = serial_info['seasons'][int(selected_season)]
+        rating_key = service.get_episode_url(path, selected_season, 0)
 
-        oc.add(DirectoryObject(
-            key=Callback(HandleEpisodes, path=path, title=season_name, name=season_name,
-                         thumb=thumb, season=selected_season),
-            title=unicode(season_name)
+        oc.add(SeasonObject(
+            key=Callback(HandleEpisodes, path=path, title=season_name, name=name, thumb=thumb, season=selected_season),
+            title=unicode(season_name),
+            rating_key=rating_key,
+            index=int(selected_season),
+            thumb=thumb,
         ))
 
     serial_info = service.get_serial_info(document)
@@ -202,12 +205,12 @@ def HandleSeasons(path, title, name, thumb, selected_season=None, selected_episo
             # source_title = unicode(L('Title'))
 
             oc.add(SeasonObject(
-                key=Callback(HandleEpisodes, path=path, title=name, name=season_name, thumb=thumb, season=season),
+                key=Callback(HandleEpisodes, path=path, title=season_name, name=name, thumb=thumb, season=season),
                 title=unicode(season_name),
                 rating_key=rating_key,
                 index=int(season),
-                # source_title=source_title,
                 thumb=thumb,
+                # source_title=source_title,
                 # summary=data['summary']
             ))
 
@@ -227,7 +230,7 @@ def HandleSeasons(path, title, name, thumb, selected_season=None, selected_episo
 
 @route(constants.PREFIX + '/episodes', container=bool)
 def HandleEpisodes(path, title, name, thumb, season, container=False):
-    oc = ObjectContainer(title2=unicode(title + ': ' + name))
+    oc = ObjectContainer(title2=unicode(title))
 
     document = service.get_movie_document(path, season, 1)
     serial_info = service.get_serial_info(document)
@@ -235,18 +238,15 @@ def HandleEpisodes(path, title, name, thumb, season, container=False):
     for episode in sorted(serial_info['episodes'].keys()):
         episode_name = serial_info['episodes'][episode]
 
-        key = Callback(HandleMovie, path=path,
-                       title=unicode(title + ': ' + name + ': ' + episode_name),
-                       name=title + ': ' + name,
-                       thumb=thumb,
-                       season=season, episode=episode, container=container)
+        key = Callback(HandleMovie, path=path, title=episode_name, name=name,
+                       thumb=thumb, season=season, episode=episode, container=container)
 
         oc.add(DirectoryObject(key=key, title=unicode(episode_name)))
 
     media_info = {
         "path": path,
         "title": title,
-        "name": title + ': ' + name,
+        "name": name,
         "thumb": thumb,
         "season": season
     }
@@ -276,9 +276,8 @@ def HandleMovie(path, title, name, thumb, season=None, episode=None, container=F
 
         oc = ObjectContainer(title2=unicode(name))
 
-        oc.add(
-            MetadataObjectForURL(path=path, title=title, name=name, thumb=thumb,
-                                 season=season, episode=episode, urls=urls))
+        oc.add(MetadataObjectForURL(path=path, title=title, name=name, thumb=thumb,
+                                    season=season, episode=episode, urls=urls))
 
         if str(container) == 'False':
             history.push_to_history(media_info)
@@ -338,19 +337,19 @@ def HandleQueue():
         if 'episode' in item:
             oc.add(DirectoryObject(
                 key=Callback(HandleMovie, **item),
-                title=service.sanitize(item['title']),
+                title=service.sanitize(item['name']),
                 thumb=item['thumb']
             ))
         elif 'season' in item:
             oc.add(DirectoryObject(
                 key=Callback(HandleEpisodes, **item),
-                title=service.sanitize(item['title']),
+                title=service.sanitize(item['name']),
                 thumb=item['thumb']
             ))
         else:
             oc.add(DirectoryObject(
                 key=Callback(HandleContainer, **item),
-                title=service.sanitize(item['title']),
+                title=service.sanitize(item['name']),
                 thumb=item['thumb']
             ))
 
