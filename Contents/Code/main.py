@@ -260,6 +260,13 @@ def HandleEpisodes(path, title, name, thumb, season, container=False):
 
 @route(constants.PREFIX + '/movie', container=bool)
 def HandleMovie(path, title, name, thumb, season=None, episode=None, container=False, **params):
+    # urls = service.load_cache(path)
+    #
+    # if not urls:
+    #     urls = service.retrieve_urls(path, season=season, episode=episode)
+    #
+    # service.save_cache(urls)
+
     urls = service.retrieve_urls(path, season=season, episode=episode)
 
     if not urls:
