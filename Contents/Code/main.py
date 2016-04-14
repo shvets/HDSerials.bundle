@@ -139,8 +139,7 @@ def HandleCategoryItems(category_path, title, page=1):
         path = item['path']
         thumb = service.get_thumb(item['thumb'])
 
-        #return HandleContainer(path=path, title=title, name=title, thumb=thumb)
-        return HandleSeasons(path=path, title=title, name=title, thumb=thumb)
+        return HandleContainer(path=path, title=title, name=title, thumb=thumb)
     else:
         oc = ObjectContainer(title2=unicode(title))
 
@@ -326,7 +325,11 @@ def HandleHistory():
         for item in sorted(history_object.values(), key=lambda k: k['time'], reverse=True):
             path = item['path']
             title = item['title']
-            thumb = service.get_thumb(item['thumb'])
+
+            if item['thumb']:
+                thumb = service.get_thumb(item['thumb'])
+            else:
+                thumb = None
 
             oc.add(DirectoryObject(
                 key=Callback(HandleContainer, path=path, title=title, name=title, thumb=thumb),
@@ -389,6 +392,11 @@ def MetadataObjectForURL(path, title, name, thumb, season, episode, urls):
     else:
         media_type = 'movie'
         params['year'] = data['year']
+        params['genres'] = data['genres']
+        params['countries'] = data['countries']
+        params['genres'] = data['genres']
+        # video.tagline = 'tagline'
+        # video.original_title = 'original_title'
 
     video = builder.build_metadata_object(media_type=media_type, **params)
 
@@ -396,9 +404,11 @@ def MetadataObjectForURL(path, title, name, thumb, season, episode, urls):
     video.rating_key = service.get_episode_url(path, season, 0)
     video.rating = data['rating']
     video.thumb = data['thumb']
+    video.art = data['thumb']
     video.tags = data['tags']
     video.duration = data['duration'] * 1000
     video.summary = data['summary']
+    video.directors = data['directors']
 
     video.key = Callback(HandleMovie, path=path, title=title, name=name, thumb=thumb,
                          season=season, episode=episode, container=True)
@@ -415,7 +425,9 @@ def MediaObjectsForURL(urls):
 
         play_callback = Callback(PlayVideo, url=url)
 
-        media_object = builder.build_media_object(play_callback, video_resolution=item['width'], bitrate=item['bandwidth'])
+        media_object = builder.build_media_object(play_callback, video_resolution=item['height'],
+                                                  width=item['width'], height=item['height'],
+                                                  bitrate=item['bandwidth'])
 
         items.append(media_object)
 

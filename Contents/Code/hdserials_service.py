@@ -251,7 +251,10 @@ class HDSerialsService(MwService):
             data['year'] = int(description[u'Год выпуска'][0:4])
 
         data['tags'] = description[u'Жанр'].replace(',', ', ').split(',')
+        data['genres'] = description[u'Жанр'].replace(',', ', ').split(',')
         data['summary'] = summary
+        data['countries'] = description[u'Страна'].split(',')
+        data['directors'] = description[u'Режиссер'].split(' ')
 
         return data
 
