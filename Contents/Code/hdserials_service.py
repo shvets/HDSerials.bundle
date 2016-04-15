@@ -192,7 +192,11 @@ class HDSerialsService(MwService):
         title_block = block.xpath('//h2[@class="itemTitle"]')[0].text_content().split('/')
 
         titles = [l.strip() for l in title_block]
-        data['title'] = titles[0] + ' / ' + titles[1]
+
+        if len(titles) > 1:
+          data['title'] = titles[0] + ' / ' + titles[1]
+        else:
+            data['title'] = titles[0]
 
         data['rating'] = float(re.compile('width\s?:\s?([\d\.]+)').search(
             block.xpath('//div[@class="itemRatingBlock"]//li[@class="itemCurrentRating"]')[0].get('style')
@@ -215,7 +219,10 @@ class HDSerialsService(MwService):
 
                 description[key] = value
 
-        if len(description) == 0:
+        if len(description) > 0:
+            if u'В ролях' not in description:
+                description[u'В ролях'] = ''
+        else:
             text = description_block.text_content()
 
             text, roles = text.split(u'В ролях:')
@@ -437,7 +444,7 @@ class HDSerialsService(MwService):
         return s
 
     def sanitize(self, name):
-        return name[0:35]
+        return unicode(name[0:35])
 
     def convert_duration(self, s):
         s = s.replace('~', '').strip()

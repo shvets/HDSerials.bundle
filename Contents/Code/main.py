@@ -168,6 +168,7 @@ def HandleContainer(path, title, name, thumb=None, selected_season=None, selecte
     else:
         return HandleMovie(path=path, title=title, name=name, thumb=thumb)
 
+@route(constants.PREFIX + '/seasons')
 def HandleSeasons(path, title, name, thumb, selected_season=None, selected_episode=None):
     oc = ObjectContainer(title2=unicode(title))
 
@@ -176,7 +177,7 @@ def HandleSeasons(path, title, name, thumb, selected_season=None, selected_episo
     if selected_season:
         serial_info = service.get_serial_info(document)
 
-        if selected_episode:
+        if selected_episode and len(serial_info['episodes']) >= selected_episode:
             episode_name = serial_info['episodes'][int(selected_episode)]
 
             oc.add(DirectoryObject(
