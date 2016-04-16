@@ -31,8 +31,8 @@ class Storage():
 
         self.storage_save(json.dumps(self.data, indent=4))
 
-    def add(self, item):
-        self.data.append(item)
+    def add(self, **params):
+        self.data.append(params)
 
-    def remove(self, item):
-        self.data.remove(item)
+    def remove(self, **params):
+        self.data.remove(params)
