@@ -18,3 +18,6 @@ def no_contents(name=None):
         name = 'Error'
 
     return MessageContainer(header=unicode(L(name)), message=unicode(L('No entries found')))
+
+def sanitize(name):
+    return unicode(name[0:35])

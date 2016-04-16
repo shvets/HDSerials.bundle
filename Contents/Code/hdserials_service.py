@@ -443,9 +443,6 @@ class HDSerialsService(MwService):
 
         return s
 
-    def sanitize(self, name):
-        return unicode(name[0:35])
-
     def convert_duration(self, s):
         s = s.replace('~', '').strip()
 

@@ -68,12 +68,12 @@ def HandleCategories():
         if path == '/Serialy.html':
             oc.add(DirectoryObject(
                 key=Callback(HandleSerials, category_path=path, title=title),
-                title=unicode(title)
+                title=util.sanitize(title)
             ))
         else:
             oc.add(DirectoryObject(
                 key=Callback(HandleCategory, category_path=path, title=title),
-                title=unicode(title)
+                title=util.sanitize(title)
             ))
 
     return oc
@@ -112,7 +112,7 @@ def HandleCategory(category_path, title):
 
         oc.add(DirectoryObject(
             key=Callback(HandleCategoryItems, category_path=category_path, title=all_title),
-            title=unicode(all_title)
+            title=util.sanitize(all_title)
         ))
 
     cats = service.get_subcategories(category_path)
@@ -123,7 +123,7 @@ def HandleCategory(category_path, title):
 
         oc.add(DirectoryObject(
             key=Callback(HandleCategoryItems, category_path=path, title=title),
-            title=unicode(title)
+            title=util.sanitize(title)
         ))
 
     return oc
@@ -151,7 +151,7 @@ def HandleCategoryItems(category_path, title, page=1):
 
                 oc.add(DirectoryObject(
                     key=Callback(HandleContainer, path=path, title=title, name=title, thumb=thumb),
-                    title=unicode(title),
+                    title=util.sanitize(title),
                     thumb=thumb
                 ))
 
@@ -191,8 +191,8 @@ def HandleSeasons(path, title, name, thumb, operation=None, selected_season=None
                 episode_name = serial_info['episodes'][selected_episode]
 
                 oc.add(DirectoryObject(
-                    key=Callback(HandleMovie, path=path, title=episode_name, name=episode_name, thumb=thumb),
-                    title=unicode(episode_name)
+                    key=Callback(HandleMovie, path=path, title=episode_name, name=name, thumb=thumb),
+                    title=util.sanitize(episode_name)
                 ))
 
         season_name = serial_info['seasons'][selected_season]
@@ -335,19 +335,19 @@ def HandleQueue():
         if 'episode' in item:
             oc.add(DirectoryObject(
                 key=Callback(HandleMovie, **item),
-                title=service.sanitize(item['name']),
+                title=util.sanitize(item['name']),
                 thumb=item['thumb']
             ))
         elif 'season' in item:
             oc.add(DirectoryObject(
                 key=Callback(HandleEpisodes, **item),
-                title=service.sanitize(item['name']),
+                title=util.sanitize(item['name']),
                 thumb=item['thumb']
             ))
         else:
             oc.add(DirectoryObject(
                 key=Callback(HandleContainer, **item),
-                title=service.sanitize(item['name']),
+                title=util.sanitize(item['name']),
                 thumb=item['thumb']
             ))
 
