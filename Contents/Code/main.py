@@ -16,7 +16,7 @@ def HandleNewSeries():
 
     for item in new_series:
         path = item['path']
-        title = item['title']
+        name = item['title']
         text = item['text']
 
         info = service.get_episode_info(text)
@@ -25,9 +25,9 @@ def HandleNewSeries():
         episode = info['episode']
 
         oc.add(DirectoryObject(
-            key=Callback(HandleContainer, path=path, title=title, name=title,
+            key=Callback(HandleContainer, path=path, title=name, name=name,
                          selected_season=season, selected_episode=episode),
-            title=title + ", " + str(episode) + " " + unicode(L("episode"))
+            title=name + ", " + str(episode) + " " + unicode(L("episode"))
         ))
 
     return oc
@@ -41,15 +41,13 @@ def HandlePopular(page=1):
     response = service.get_popular(page=page)
 
     for index, item in enumerate(response['movies']):
-        title = item['title']
+        name = item['title']
         path = item['path']
         thumb = item['thumb']
 
-        oc.add(DirectoryObject(
-            key=Callback(HandleContainer, path=path, title=title, name=title, thumb=thumb),
-            title=unicode(title),
-            thumb=thumb
-        ))
+        key = Callback(HandleContainer, path=path, title=name, name=name, thumb=thumb)
+
+        oc.add(DirectoryObject(key=key, title=unicode(name), thumb=thumb))
 
     pagination.append_controls(oc, response, page=int(page), callback=HandlePopular)
 
@@ -62,18 +60,18 @@ def HandleCategories():
     items = service.get_categories()
 
     for item in items:
-        title = item['title']
+        name = item['title']
         path = item['path']
 
         if path == '/Serialy.html':
             oc.add(DirectoryObject(
-                key=Callback(HandleSerials, category_path=path, title=title),
-                title=util.sanitize(title)
+                key=Callback(HandleSerials, category_path=path, title=name),
+                title=util.sanitize(name)
             ))
         else:
             oc.add(DirectoryObject(
-                key=Callback(HandleCategory, category_path=path, title=title),
-                title=util.sanitize(title)
+                key=Callback(HandleCategory, category_path=path, title=name),
+                title=util.sanitize(name)
             ))
 
     return oc
@@ -85,14 +83,14 @@ def HandleSerials(category_path, title, page=1):
     response = service.get_subcategories(category_path, page)
 
     for item in response['data']:
-        title = item['title']
+        name = item['title']
         path = item['path']
 
         #thumb = service.URL + service.fetch_document(service.URL + path).xpath('//div[@class="catItemImageBlock"]//span/a/img')[0].get('src')
 
         oc.add(DirectoryObject(
-            key=Callback(HandleCategoryItems, category_path=path, title=title),
-            title=unicode(title),
+            key=Callback(HandleCategoryItems, category_path=path, title=name),
+            title=unicode(name),
             thumb=R(constants.ICON)
         ))
 
@@ -118,12 +116,12 @@ def HandleCategory(category_path, title):
     cats = service.get_subcategories(category_path)
 
     for item in cats['data']:
-        title = item['title']
+        name = item['title']
         path = item['path']
 
         oc.add(DirectoryObject(
-            key=Callback(HandleCategoryItems, category_path=path, title=title),
-            title=util.sanitize(title)
+            key=Callback(HandleCategoryItems, category_path=path, title=name),
+            title=util.sanitize(name)
         ))
 
     return oc
@@ -135,23 +133,23 @@ def HandleCategoryItems(category_path, title, page=1):
     if len(response['movies']) == 1:
         item = response['movies'][0]
 
-        title = item['title']
+        name = item['title']
         path = item['path']
         thumb = service.get_thumb(item['thumb'])
 
-        return HandleContainer(path=path, title=title, name=title, thumb=thumb)
+        return HandleContainer(path=path, title=name, name=name, thumb=thumb)
     else:
         oc = ObjectContainer(title2=unicode(title))
 
         if response['movies']:
             for item in response['movies']:
-                title = item['title']
+                name = item['title']
                 path = item['path']
                 thumb = service.get_thumb(item['thumb'])
 
                 oc.add(DirectoryObject(
-                    key=Callback(HandleContainer, path=path, title=title, name=title, thumb=thumb),
-                    title=util.sanitize(title),
+                    key=Callback(HandleContainer, path=path, title=name, name=name, thumb=thumb),
+                    title=util.sanitize(name),
                     thumb=thumb
                 ))
 
@@ -312,7 +310,7 @@ def HandleHistory():
     if history_object:
         for item in sorted(history_object.values(), key=lambda k: k['time'], reverse=True):
             path = item['path']
-            title = item['title']
+            name = item['title']
 
             if item['thumb']:
                 thumb = service.get_thumb(item['thumb'])
@@ -320,8 +318,8 @@ def HandleHistory():
                 thumb = None
 
             oc.add(DirectoryObject(
-                key=Callback(HandleContainer, path=path, title=title, name=title, thumb=thumb),
-                title=unicode(title),
+                key=Callback(HandleContainer, path=path, title=name, name=name, thumb=thumb),
+                title=unicode(name),
                 thumb=thumb
             ))
 
@@ -402,8 +400,7 @@ def MediaObjectsForURL(urls):
         play_callback = Callback(PlayVideo, url=url)
 
         media_object = builder.build_media_object(play_callback, video_resolution=item['height'],
-                                                  width=item['width'], height=item['height'],
-                                                  bitrate=item['bandwidth'])
+                                                  width=item['width'], height=item['height'])
 
         items.append(media_object)
 
