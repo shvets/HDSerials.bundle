@@ -408,13 +408,14 @@ def MediaObjectsForURL(urls):
 
 @indirect
 @route(constants.PREFIX + '/play_video')
-def PlayVideo(url):
+def PlayVideo(url, play_list=True):
     if not url:
         return util.no_contents()
     else:
-        play_list = Callback(PlayList, url=url)
+        if str(play_list) == 'True':
+            url = Callback(PlayList, url=url)
 
-        return IndirectResponse(MovieObject, key=HTTPLiveStreamURL(play_list))
+        return IndirectResponse(MovieObject, key=HTTPLiveStreamURL(url))
 
 @route(constants.PREFIX + '/play_list.m3u8')
 def PlayList(url):

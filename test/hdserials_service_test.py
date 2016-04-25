@@ -67,7 +67,7 @@ class HDSerialsServiceTest(unittest.TestCase):
         self.assertEqual(pagination['has_previous'], False)
         self.assertEqual(pagination['page'], 1)
 
-        result =self.service.get_category_items('/Filmy.html', page=2)
+        result = self.service.get_category_items('/Filmy.html', page=2)
 
         # print(json.dumps(result, indent=4))
 

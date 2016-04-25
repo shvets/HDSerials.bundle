@@ -60,11 +60,11 @@ class HttpService():
 
         return "\n".join(new_lines)
 
-    def fetch_content(self, url):
-        return self.http_request(url).read()
+    def fetch_content(self, url, headers=None):
+        return self.http_request(url, headers=headers).read()
 
-    def fetch_document(self, url):
-        content = self.fetch_content(url)
+    def fetch_document(self, url, headers=None):
+        content = self.fetch_content(url, headers=headers)
 
         return self.to_document(content)
 
