@@ -43,10 +43,16 @@ class HttpService():
         else:
             return content
 
-    def get_play_list(self, url):
+    def get_base_url(self, url):
         path = url.split('/')
         path.pop()
         path = '/'.join(path)
+
+        return path
+
+    def get_play_list(self, url, base_url=None):
+        if not base_url:
+            base_url = self.get_base_url(url)
 
         lines = self.http_request(url).read().splitlines()
 
@@ -56,7 +62,7 @@ class HttpService():
             if line[:1] == '#':
                 new_lines.append(line)
             else:
-                new_lines.append(path + '/' + line)
+                new_lines.append(base_url + '/' + line)
 
         return "\n".join(new_lines)
 

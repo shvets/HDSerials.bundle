@@ -86,7 +86,7 @@ class HDSerialsService(MwService):
 
                     list.append({'path': path, 'title': title, 'thumb': thumb})
 
-        pagination = self.extract__pagination_data_from_array(items, page, per_page)
+        pagination = self.extract_pagination_data_from_array(items, page, per_page)
 
         return {"movies": list, "pagination": pagination["pagination"]}
 
@@ -107,7 +107,7 @@ class HDSerialsService(MwService):
 
                 list.append({'path': href, 'title': title})
 
-        pagination = self.extract__pagination_data_from_array(items, page, per_page)
+        pagination = self.extract_pagination_data_from_array(items, page, per_page)
 
         return {"data": list, "pagination": pagination["pagination"]}
 
@@ -163,7 +163,7 @@ class HDSerialsService(MwService):
 
         return response
 
-    def extract__pagination_data_from_array(self, items, page, per_page):
+    def extract_pagination_data_from_array(self, items, page, per_page):
         pages = len(items) / per_page
 
         if len(items) % per_page > 0:

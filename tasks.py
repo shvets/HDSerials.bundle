@@ -14,7 +14,7 @@ else:
 if 'HOSTNAME' in os.environ:
     hostname = os.environ['HOSTNAME']
 else:
-    hostname = '10.0.1.37'
+    hostname = '10.0.1.60'
 
 plugin_name = 'hdserials'
 bundle_name = 'HDSerials.bundle'
