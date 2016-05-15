@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import util
+
+util.add_library("common")
+
 import history
 import constants
-from plex_service import PlexService
+from hd_serials_plex_service import HDSerialsPlexService
 
-service = PlexService()
+service = HDSerialsPlexService()
 
 import main
 

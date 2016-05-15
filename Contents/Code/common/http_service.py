@@ -66,6 +66,19 @@ class HttpService():
 
         return "\n".join(new_lines)
 
+    def get_play_list_urls(self, url):
+        play_list = self.get_play_list(url)
+
+        lines = play_list.splitlines()
+
+        urls = []
+
+        for line in lines:
+            if line[:1] != '#':
+                urls.append(line)
+
+        return urls
+
     def fetch_content(self, url, headers=None):
         return self.http_request(url, headers=headers).read()
 
