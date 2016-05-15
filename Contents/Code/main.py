@@ -192,6 +192,7 @@ def HandleMovieOrSerie(selected_season=None, selected_episode=None, **params):
 
 @route(constants.PREFIX + '/serie')
 def HandleSerie(operation=None, selected_season=None, selected_episode=None, **params):
+    Log(params)
     oc = ObjectContainer(title2=unicode(params['title']))
 
     media_info = MediaInfo(**params)
@@ -278,6 +279,13 @@ def HandleSerie(operation=None, selected_season=None, selected_episode=None, **p
 
 @route(constants.PREFIX + '/season', container=bool)
 def HandleSeason(operation=None, container=False, **params):
+    Log(params)
+
+    if 'thumb' in params:
+        thumb = params['thumb']
+    else:
+        thumb = None
+
     oc = ObjectContainer(title2=unicode(params['title']))
 
     media_info = MediaInfo(**params)
@@ -298,7 +306,7 @@ def HandleSeason(operation=None, container=False, **params):
             'id': params['id'],
             'title': episode_name,
             'name': params['name'],
-            'thumb': params['thumb'],
+            'thumb': thumb,
             'season': params['season'],
             'episode':  episode
         }
@@ -311,13 +319,26 @@ def HandleSeason(operation=None, container=False, **params):
     return oc
 
 @route(constants.PREFIX + '/movie', container=bool)
-def HandleMovie(season=None, episode=None, operation=None, container=False, **params):
+def HandleMovie(operation=None, container=False, **params):
     # urls = service.load_cache(path)
     #
     # if not urls:
     #     urls = service.retrieve_urls(path, season=season, episode=episode)
     #
     # service.save_cache(urls)
+
+    if 'season' in params:
+        season = params['season']
+    else:
+        season = None
+
+    if 'episode' in params:
+        episode = params['episode']
+    else:
+        episode = None
+
+    Log(params)
+    Log(params)
 
     urls = service.retrieve_urls(params['id'], season=season, episode=episode)
 
