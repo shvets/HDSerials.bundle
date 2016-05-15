@@ -192,59 +192,16 @@ def HandleMovieOrSerie(selected_season=None, selected_episode=None, **params):
 
 @route(constants.PREFIX + '/serie')
 def HandleSerie(operation=None, selected_season=None, selected_episode=None, **params):
-    Log(params)
     oc = ObjectContainer(title2=unicode(params['title']))
 
     media_info = MediaInfo(**params)
 
-    if operation == 'add':
-        service.queue.add(media_info)
-    elif operation == 'remove':
-        service.queue.remove(media_info)
+    service.handle_bookmark_operation(operation, media_info)
 
     document = service.get_movie_document(params['id'])
 
     if selected_season:
-        selected_season = int(selected_season)
-
-        serial_info = service.get_serial_info(document)
-
-        if selected_episode:
-            selected_episode = int(selected_episode)
-
-            if len(serial_info['episodes']) >= selected_episode:
-                episode_name = serial_info['episodes'][selected_episode]
-
-                new_params = {
-                    'type': 'episode',
-                    'id': params['id'],
-                    'title': episode_name,
-                    'name': params['name'],
-                    'thumb': params['thumb']
-                }
-                oc.add(DirectoryObject(
-                    key=Callback(HandleMovie, **new_params),
-                    title=util.sanitize(episode_name)
-                ))
-
-        season_name = serial_info['seasons'][selected_season]
-        rating_key = service.get_episode_url(params['id'], selected_season, 0)
-
-        new_params = {
-            'type': 'season',
-            'id': params['id'],
-            'title': season_name,
-            'name': params['name'],
-            'thumb': params['thumb'],
-            'season': selected_season
-        }
-        oc.add(SeasonObject(
-            key=Callback(HandleSeason, **new_params),
-            title=unicode(season_name),
-            rating_key=rating_key,
-            index=selected_season,
-            thumb=params['thumb'],
-        ))
+        addSelectedSeason(oc, document, selected_season, selected_episode, **params)
 
     serial_info = service.get_serial_info(document)
 
@@ -273,14 +230,55 @@ def HandleSerie(operation=None, selected_season=None, selected_episode=None, **p
                 # summary=data['summary']
             ))
 
-    service.queue.append_controls(oc, HandleSerie, media_info)
+    service.append_bookmark_controls(oc, HandleSerie, media_info)
 
     return oc
 
+def addSelectedSeason(oc, document, selected_season, selected_episode, **params):
+    selected_season = int(selected_season)
+
+    serial_info = service.get_serial_info(document)
+
+    if selected_episode:
+        selected_episode = int(selected_episode)
+
+        if len(serial_info['episodes']) >= selected_episode:
+            episode_name = serial_info['episodes'][selected_episode]
+
+            new_params = {
+                'type': 'episode',
+                'id': params['id'],
+                'title': episode_name,
+                'name': params['name'],
+                'thumb': params['thumb']
+            }
+            oc.add(DirectoryObject(
+                key=Callback(HandleMovie, **new_params),
+                title=util.sanitize(episode_name)
+            ))
+
+    season_name = serial_info['seasons'][selected_season]
+    rating_key = service.get_episode_url(params['id'], selected_season, 0)
+
+    new_params = {
+        'type': 'season',
+        'id': params['id'],
+        'title': season_name,
+        'name': params['name'],
+        'thumb': params['thumb'],
+        'season': selected_season
+    }
+
+    oc.add(SeasonObject(
+        key=Callback(HandleSeason, **new_params),
+        title=unicode(season_name),
+        rating_key=rating_key,
+        index=selected_season,
+        thumb=params['thumb'],
+    ))
+
 @route(constants.PREFIX + '/season', container=bool)
 def HandleSeason(operation=None, container=False, **params):
-    Log(params)
-
     if 'thumb' in params:
         thumb = params['thumb']
     else:
@@ -290,10 +288,7 @@ def HandleSeason(operation=None, container=False, **params):
 
     media_info = MediaInfo(**params)
 
-    if operation == 'add':
-        service.queue.add(media_info)
-    elif operation == 'remove':
-        service.queue.remove(media_info)
+    service.handle_bookmark_operation(operation, media_info)
 
     document = service.get_movie_document(params['id'], params['season'], 1)
     serial_info = service.get_serial_info(document)
@@ -314,7 +309,7 @@ def HandleSeason(operation=None, container=False, **params):
 
         oc.add(DirectoryObject(key=key, title=unicode(episode_name)))
 
-    service.queue.append_controls(oc, HandleSeason, media_info)
+    service.append_bookmark_controls(oc, HandleSeason, media_info)
 
     return oc
 
@@ -337,9 +332,6 @@ def HandleMovie(operation=None, container=False, **params):
     else:
         episode = None
 
-    Log(params)
-    Log(params)
-
     urls = service.retrieve_urls(params['id'], season=season, episode=episode)
 
     if not urls:
@@ -349,10 +341,7 @@ def HandleMovie(operation=None, container=False, **params):
 
         media_info = MediaInfo(**params)
 
-        if operation == 'add':
-            service.queue.add(media_info)
-        elif operation == 'remove':
-            service.queue.remove(media_info)
+        service.handle_bookmark_operation(operation, media_info)
 
         document = service.fetch_document(params['id'])
         data = service.get_media_data(document)
@@ -402,22 +391,9 @@ def HandleMovie(operation=None, container=False, **params):
 
         if str(container) == 'False':
             history.push_to_history(Data, media_info)
-            service.queue.append_controls(oc, HandleMovie, media_info)
+            service.append_bookmark_controls(oc, HandleMovie, media_info)
 
         return oc
-
-@route(constants.PREFIX + '/container')
-def HandleContainer(**params):
-    type = params['type']
-
-    if type == 'movie':
-        return HandleMovie(**params)
-    elif type == 'episode':
-        return HandleMovie(**params)
-    elif type == 'season':
-        return HandleSeason(**params)
-    elif type == 'serie':
-        return HandleSerie(**params)
 
 @route(constants.PREFIX + '/search')
 def HandleSearch(query=None, page=1):
@@ -428,10 +404,9 @@ def HandleSearch(query=None, page=1):
     for movie in response['movies']:
         name = movie['name']
         thumb = movie['thumb']
-        path = movie['path']
 
         new_params = {
-            'id': path,
+            'id': movie['path'],
             'title': name,
             'name': name,
             'thumb': None
@@ -445,6 +420,19 @@ def HandleSearch(query=None, page=1):
     pagination.append_controls(oc, response, page=page, callback=HandleSearch, query=query)
 
     return oc
+
+@route(constants.PREFIX + '/container')
+def HandleContainer(**params):
+    type = params['type']
+
+    if type == 'movie':
+        return HandleMovie(**params)
+    elif type == 'episode':
+        return HandleMovie(**params)
+    elif type == 'season':
+        return HandleSeason(**params)
+    elif type == 'serie':
+        return HandleSerie(**params)
 
 @route(constants.PREFIX + '/queue')
 def HandleQueue():
