@@ -196,7 +196,7 @@ def HandleSerie(operation=None, selected_season=None, selected_episode=None, **p
 
     media_info = MediaInfo(**params)
 
-    service.handle_bookmark_operation(operation, media_info)
+    service.queue.handle_bookmark_operation(operation, media_info)
 
     document = service.get_movie_document(params['id'])
 
@@ -230,7 +230,7 @@ def HandleSerie(operation=None, selected_season=None, selected_episode=None, **p
                 # summary=data['summary']
             ))
 
-    service.append_bookmark_controls(oc, HandleSerie, media_info)
+    service.queue.append_bookmark_controls(oc, HandleSerie, media_info)
 
     return oc
 
@@ -288,7 +288,7 @@ def HandleSeason(operation=None, container=False, **params):
 
     media_info = MediaInfo(**params)
 
-    service.handle_bookmark_operation(operation, media_info)
+    service.queue.handle_bookmark_operation(operation, media_info)
 
     document = service.get_movie_document(params['id'], params['season'], 1)
     serial_info = service.get_serial_info(document)
@@ -309,7 +309,7 @@ def HandleSeason(operation=None, container=False, **params):
 
         oc.add(DirectoryObject(key=key, title=unicode(episode_name)))
 
-    service.append_bookmark_controls(oc, HandleSeason, media_info)
+    service.queue.append_bookmark_controls(oc, HandleSeason, media_info)
 
     return oc
 
@@ -341,7 +341,7 @@ def HandleMovie(operation=None, container=False, **params):
 
         media_info = MediaInfo(**params)
 
-        service.handle_bookmark_operation(operation, media_info)
+        service.queue.handle_bookmark_operation(operation, media_info)
 
         document = service.fetch_document(params['id'])
         data = service.get_media_data(document)
@@ -391,7 +391,7 @@ def HandleMovie(operation=None, container=False, **params):
 
         if str(container) == 'False':
             history.push_to_history(Data, media_info)
-            service.append_bookmark_controls(oc, HandleMovie, media_info)
+            service.queue.append_bookmark_controls(oc, HandleMovie, media_info)
 
         return oc
 
