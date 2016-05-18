@@ -286,7 +286,7 @@ def HandleSeason(operation=None, container=False, **params):
     else:
         thumb = None
 
-    oc = ObjectContainer(title2=unicode(params['title']))
+    oc = ObjectContainer(title2=unicode(params['name']))
 
     media_info = MediaInfo(**params)
 
@@ -449,7 +449,7 @@ def HandleQueue():
 
         oc.add(DirectoryObject(
             key=Callback(HandleContainer, **media_info),
-            title=util.sanitize(media_info['name']),
+            title=unicode(service.queue.getItemName(media_info)),
             thumb=thumb
         ))
 
