@@ -214,8 +214,8 @@ def HandleSerie(operation=None, selected_season=None, selected_episode=None, **p
             new_params = {
                 'type': 'season',
                 'id': params['id'],
-                'title': season_name,
-                'name': params['name'],
+                'serieName': params['name'],
+                'name': season_name,
                 'thumb': params['thumb'],
                 'season': season
             }
@@ -248,9 +248,11 @@ def addSelectedSeason(oc, document, selected_season, selected_episode, **params)
             new_params = {
                 'type': 'episode',
                 'id': params['id'],
-                'title': episode_name,
-                'name': params['name'],
-                'thumb': params['thumb']
+                'serieName': params['serieName'],
+                'name': episode_name,
+                'thumb': params['thumb'],
+                'episodeNumber': selected_episode
+
             }
             oc.add(DirectoryObject(
                 key=Callback(HandleMovie, **new_params),
@@ -293,17 +295,18 @@ def HandleSeason(operation=None, container=False, **params):
     document = service.get_movie_document(params['id'], params['season'], 1)
     serial_info = service.get_serial_info(document)
 
-    for episode in sorted(serial_info['episodes'].keys()):
+    for index, episode in enumerate(sorted(serial_info['episodes'].keys())):
         episode_name = serial_info['episodes'][episode]
 
         new_params = {
             'type': 'episode',
             'id': params['id'],
-            'title': episode_name,
-            'name': params['name'],
+            'serieName': params['serieName'],
+            'name': episode_name,
             'thumb': thumb,
             'season': params['season'],
-            'episode':  episode
+            'episode':  episode,
+            'episodeNumber': index + 1
         }
         key = Callback(HandleMovie, container=container, **new_params)
 
