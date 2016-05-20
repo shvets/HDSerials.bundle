@@ -248,7 +248,7 @@ def addSelectedSeason(oc, document, selected_season, selected_episode, **params)
             new_params = {
                 'type': 'episode',
                 'id': params['id'],
-                'serieName': params['serieName'],
+                'serieName': params['name'],
                 'name': episode_name,
                 'thumb': params['thumb'],
                 'episodeNumber': selected_episode
