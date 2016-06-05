@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*-
 
 from media_info import MediaInfo
-import constants
-import util
+import plex_util
 import pagination
 import history
 from flow_builder import FlowBuilder
 
-builder = FlowBuilder()
-
-@route(constants.PREFIX + '/new_series')
+@route(PREFIX + '/new_series')
 def HandleNewSeries():
     oc = ObjectContainer(title2=unicode(L("New Series")))
 
@@ -38,7 +35,7 @@ def HandleNewSeries():
 
     return oc
 
-@route(constants.PREFIX + '/popular')
+@route(PREFIX + '/popular')
 def HandlePopular(page=1):
     page = int(page)
 
@@ -65,7 +62,7 @@ def HandlePopular(page=1):
 
     return oc
 
-@route(constants.PREFIX + '/categories')
+@route(PREFIX + '/categories')
 def HandleCategories():
     oc = ObjectContainer(title2=unicode(L('Categories')))
 
@@ -78,17 +75,17 @@ def HandleCategories():
         if path == '/Serialy.html':
             oc.add(DirectoryObject(
                 key=Callback(HandleSeries, category_path=path, title=name),
-                title=util.sanitize(name)
+                title=plex_util.sanitize(name)
             ))
         else:
             oc.add(DirectoryObject(
                 key=Callback(HandleCategory, category_path=path, title=name),
-                title=util.sanitize(name)
+                title=plex_util.sanitize(name)
             ))
 
     return oc
 
-@route(constants.PREFIX + '/series')
+@route(PREFIX + '/series')
 def HandleSeries(category_path, title, page=1):
     oc = ObjectContainer(title2=unicode(title))
 
@@ -101,14 +98,14 @@ def HandleSeries(category_path, title, page=1):
         oc.add(DirectoryObject(
             key=Callback(HandleCategoryItems, category_path=path, title=name),
             title=unicode(name),
-            thumb=R(constants.ICON)
+            thumb=R(ICON)
         ))
 
     pagination.append_controls(oc, response, page=page, callback=HandleSeries, category_path=category_path, title=title)
 
     return oc
 
-@route(constants.PREFIX + '/category')
+@route(PREFIX + '/category')
 def HandleCategory(category_path, title):
     oc = ObjectContainer(title2=unicode(title))
 
@@ -120,7 +117,7 @@ def HandleCategory(category_path, title):
 
         oc.add(DirectoryObject(
             key=Callback(HandleCategoryItems, category_path=category_path, title=all_title),
-            title=util.sanitize(all_title)
+            title=plex_util.sanitize(all_title)
         ))
 
     cats = service.get_subcategories(category_path)
@@ -131,12 +128,12 @@ def HandleCategory(category_path, title):
 
         oc.add(DirectoryObject(
             key=Callback(HandleCategoryItems, category_path=path, title=name),
-            title=util.sanitize(name)
+            title=plex_util.sanitize(name)
         ))
 
     return oc
 
-@route(constants.PREFIX + '/category_items')
+@route(PREFIX + '/category_items')
 def HandleCategoryItems(category_path, title, page=1):
     response = service.get_category_items(category_path, page)
 
@@ -172,7 +169,7 @@ def HandleCategoryItems(category_path, title, page=1):
 
                 oc.add(DirectoryObject(
                     key=Callback(HandleMovieOrSerie, **new_params),
-                    title=util.sanitize(name),
+                    title=plex_util.sanitize(name),
                     thumb=thumb
                 ))
 
@@ -181,7 +178,7 @@ def HandleCategoryItems(category_path, title, page=1):
 
         return oc
 
-@route(constants.PREFIX + '/movie_or_serie')
+@route(PREFIX + '/movie_or_serie')
 def HandleMovieOrSerie(selected_season=None, selected_episode=None, **params):
     if service.is_serial(params['id']):
         params['type'] = 'serie'
@@ -190,7 +187,7 @@ def HandleMovieOrSerie(selected_season=None, selected_episode=None, **params):
         params['type'] = 'movie'
         return HandleMovie(**params)
 
-@route(constants.PREFIX + '/serie')
+@route(PREFIX + '/serie')
 def HandleSerie(operation=None, selected_season=None, selected_episode=None, **params):
     oc = ObjectContainer(title2=unicode(params['title']))
 
@@ -256,7 +253,7 @@ def addSelectedSeason(oc, document, selected_season, selected_episode, **params)
             }
             oc.add(DirectoryObject(
                 key=Callback(HandleMovie, **new_params),
-                title=util.sanitize(episode_name)
+                title=plex_util.sanitize(episode_name)
             ))
 
     season_name = serial_info['seasons'][selected_season]
@@ -279,7 +276,7 @@ def addSelectedSeason(oc, document, selected_season, selected_episode, **params)
         thumb=params['thumb'],
     ))
 
-@route(constants.PREFIX + '/season', container=bool)
+@route(PREFIX + '/season', container=bool)
 def HandleSeason(operation=None, container=False, **params):
     if 'thumb' in params:
         thumb = params['thumb']
@@ -316,7 +313,7 @@ def HandleSeason(operation=None, container=False, **params):
 
     return oc
 
-@route(constants.PREFIX + '/movie', container=bool)
+@route(PREFIX + '/movie', container=bool)
 def HandleMovie(operation=None, container=False, **params):
     # urls = service.load_cache(path)
     #
@@ -338,7 +335,7 @@ def HandleMovie(operation=None, container=False, **params):
     urls = service.retrieve_urls(params['id'], season=season, episode=episode)
 
     if not urls:
-        return util.no_contents()
+        return plex_util.no_contents()
     else:
         oc = ObjectContainer(title2=unicode(params['name']))
 
@@ -398,7 +395,7 @@ def HandleMovie(operation=None, container=False, **params):
 
         return oc
 
-@route(constants.PREFIX + '/search')
+@route(PREFIX + '/search')
 def HandleSearch(query=None, page=1):
     oc = ObjectContainer(title2=unicode(L('Search')))
 
@@ -424,7 +421,7 @@ def HandleSearch(query=None, page=1):
 
     return oc
 
-@route(constants.PREFIX + '/container')
+@route(PREFIX + '/container')
 def HandleContainer(**params):
     type = params['type']
 
@@ -437,7 +434,7 @@ def HandleContainer(**params):
     elif type == 'serie':
         return HandleSerie(**params)
 
-@route(constants.PREFIX + '/queue')
+@route(PREFIX + '/queue')
 def HandleQueue():
     oc = ObjectContainer(title2=unicode(L('Queue')))
 
@@ -451,13 +448,13 @@ def HandleQueue():
 
     return oc
 
-@route(constants.PREFIX + '/clear_queue')
+@route(PREFIX + '/clear_queue')
 def ClearQueue():
     service.queue.clear()
 
     return HandleQueue()
 
-@route(constants.PREFIX + '/history')
+@route(PREFIX + '/history')
 def HandleHistory():
     history_object = history.load_history(Data)
 
@@ -471,7 +468,7 @@ def HandleHistory():
     return oc
 
 def MetadataObjectForURL(media_info, url_items, player):
-    metadata_object = builder.build_metadata_object(media_type=media_info['type'], title=media_info['name'])
+    metadata_object = FlowBuilder.build_metadata_object(media_type=media_info['type'], title=media_info['name'])
 
     metadata_object.key = Callback(HandleMovie, container=True, **media_info)
 
@@ -503,17 +500,17 @@ def MediaObjectsForURL(url_items, player):
 
         play_callback = Callback(player, url=url)
 
-        media_object = builder.build_media_object(play_callback, config)
+        media_object = FlowBuilder.build_media_object(play_callback, config)
 
         media_objects.append(media_object)
 
     return media_objects
 
 @indirect
-@route(constants.PREFIX + '/play_video')
+@route(PREFIX + '/play_video')
 def PlayVideo(url, live=True, play_list=True):
     if not url:
-        return util.no_contents()
+        return plex_util.no_contents()
     else:
         if str(play_list) == 'True':
             url = Callback(PlayList, url=url)
@@ -525,6 +522,6 @@ def PlayVideo(url, live=True, play_list=True):
 
         return IndirectResponse(MovieObject, key)
 
-@route(constants.PREFIX + '/play_list.m3u8')
+@route(PREFIX + '/play_list.m3u8')
 def PlayList(url):
     return service.get_play_list(url)
