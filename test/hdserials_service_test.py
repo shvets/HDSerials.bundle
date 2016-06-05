@@ -191,7 +191,7 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         print result
 
-    def json_test(self):
+    def test_json(self):
         l = '''
 {
     partner: null,
