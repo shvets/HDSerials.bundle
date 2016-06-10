@@ -189,6 +189,27 @@ def HandleMovieOrSerie(selected_season=None, selected_episode=None, **params):
 
 @route(PREFIX + '/serie')
 def HandleSerie(operation=None, selected_season=None, selected_episode=None, **params):
+    documents = service.get_movie_documents(params['id'])
+
+    if len(documents) == 1:
+        return HandleSerieVersion(version=1, operation=operation, selected_season=selected_season,
+                                  selected_episode=selected_episode, **params)
+    else:
+        oc = ObjectContainer(title2=unicode(params['title']))
+
+        for index in range(0, len(documents)):
+            version = index + 1
+
+            oc.add(DirectoryObject(
+                key=Callback(HandleSerieVersion, version=version, operation=operation, selected_season=selected_season,
+                                  selected_episode=selected_episode, **params),
+                title="Version " + str(version),
+            ))
+
+        return oc
+
+@route(PREFIX + '/serie_version', version=int)
+def HandleSerieVersion(version, operation=None, selected_season=None, selected_episode=None, **params):
     oc = ObjectContainer(title2=unicode(params['title']))
 
     media_info = MediaInfo(**params)
@@ -197,7 +218,7 @@ def HandleSerie(operation=None, selected_season=None, selected_episode=None, **p
 
     documents = service.get_movie_documents(params['id'])
 
-    document = documents[0]
+    document = documents[version-1]
 
     if selected_season:
         addSelectedSeason(oc, document, selected_season, selected_episode, **params)
