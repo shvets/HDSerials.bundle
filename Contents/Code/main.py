@@ -195,7 +195,9 @@ def HandleSerie(operation=None, selected_season=None, selected_episode=None, **p
 
     service.queue.handle_bookmark_operation(operation, media_info)
 
-    document = service.get_movie_document(params['id'])
+    documents = service.get_movie_documents(params['id'])
+
+    document = documents[0]
 
     if selected_season:
         addSelectedSeason(oc, document, selected_season, selected_episode, **params)
@@ -289,7 +291,7 @@ def HandleSeason(operation=None, container=False, **params):
 
     service.queue.handle_bookmark_operation(operation, media_info)
 
-    document = service.get_movie_document(params['id'], params['season'], 1)
+    document = service.get_movie_documents(params['id'], params['season'], 1)[0]
     serial_info = service.get_serial_info(document)
 
     for index, episode in enumerate(sorted(serial_info['episodes'].keys())):

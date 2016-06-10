@@ -184,6 +184,15 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         print(json.dumps(result, indent=4))
 
+    def test_is_serial(self):
+        new_series = self.service.get_new_series()
+
+        path = new_series[0]['path']
+
+        result = self.service.is_serial(path)
+
+        print(json.dumps(result, indent=4))
+
     def test_convert_duration(self):
         text = ' ~  22 мин'
 

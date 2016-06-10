@@ -269,7 +269,7 @@ class HDSerialsService(MwService):
         if url.find(self.URL) < 0:
             url = self.URL + url
 
-        document = self.get_movie_document(url, season=season, episode=episode)
+        document = self.get_movie_documents(url, season=season, episode=episode)[0]
         content = tostring(document.xpath('body')[0])
 
         data = self.get_session_data(content)
@@ -282,15 +282,20 @@ class HDSerialsService(MwService):
 
         return sorted(self.get_urls(headers, data), key=itemgetter('bandwidth'), reverse=True)
 
-    def get_movie_document(self, url, season=None, episode=None):
-        gateway_url = self.get_gateway_url(self.fetch_document(url))
+    def get_movie_documents(self, url, season=None, episode=None):
+        gateway_urls = self.get_gateway_urls(self.fetch_document(url))
 
-        if season:
-            movie_url = '%s?season=%d&episode=%d' % (gateway_url, int(season), int(episode))
-        else:
-            movie_url = gateway_url
+        movie_documents = []
 
-        return self.fetch_document(movie_url)
+        for gateway_url in gateway_urls:
+            if season:
+                movie_url = '%s?season=%d&episode=%d' % (gateway_url, int(season), int(episode))
+            else:
+                movie_url = gateway_url
+
+            movie_documents.append(self.fetch_document(movie_url, self.get_headers(url)))
+
+        return movie_documents
 
     def get_serial_info(self, document):
         ret = {}
@@ -353,17 +358,17 @@ class HDSerialsService(MwService):
 
         return result
 
-    def get_gateway_url(self, document):
-        gateway_url = None
-
+    def get_gateway_urls(self, document):
         frame_block = document.xpath('//div[@id="k2Container"]')[0]
 
         urls = frame_block.xpath('//div[@class="itemFullText"]//iframe[@src]')
 
-        if len(urls) > 0:
-            gateway_url = urls[0].get('src')
+        gateway_urls = []
 
-        return gateway_url
+        for url in urls:
+            gateway_urls.append(url.get('src'))
+
+        return gateway_urls
 
     def get_cookie_info(self, url):
         response = self.http_request(url)
@@ -387,8 +392,8 @@ class HDSerialsService(MwService):
 
         return new_path
 
-    def is_serial(self, path):
-        document = self.get_movie_document(path)
+    def is_serial(self, url):
+        document = self.get_movie_documents(url)[0]
 
         content = tostring(document.xpath('body')[0])
 
@@ -473,3 +478,10 @@ class HDSerialsService(MwService):
             seconds = 0
 
         return hours * 60 * 60 + minutes * 60 + seconds
+
+    @staticmethod
+    def get_headers(referer):
+        return {
+            'User-Agent': 'Plex-User-Agent',
+            "Referer": referer
+        }
