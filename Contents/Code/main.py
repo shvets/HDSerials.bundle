@@ -189,21 +189,21 @@ def HandleMovieOrSerie(selected_season=None, selected_episode=None, **params):
 
 @route(PREFIX + '/serie')
 def HandleSerie(operation=None, selected_season=None, selected_episode=None, **params):
-    documents = service.get_movie_documents(params['id'])
+    movie_documents = service.get_movie_documents(params['id'])
 
-    if len(documents) == 1:
+    if len(movie_documents) == 1:
         return HandleSerieVersion(version=1, operation=operation, selected_season=selected_season,
                                   selected_episode=selected_episode, **params)
     else:
         oc = ObjectContainer(title2=unicode(params['title']))
 
-        for index in range(0, len(documents)):
+        for index in range(0, len(movie_documents)):
             version = index + 1
 
             oc.add(DirectoryObject(
                 key=Callback(HandleSerieVersion, version=version, operation=operation, selected_season=selected_season,
                                   selected_episode=selected_episode, **params),
-                title="Version " + str(version),
+                title=unicode(movie_documents[index]['release']),
             ))
 
         return oc
@@ -216,14 +216,14 @@ def HandleSerieVersion(version, operation=None, selected_season=None, selected_e
 
     service.queue.handle_bookmark_operation(operation, media_info)
 
-    documents = service.get_movie_documents(params['id'])
+    movie_documents = service.get_movie_documents(params['id'])
 
-    document = documents[version-1]
+    movie_document = movie_documents[version-1]['movie_document']
 
     if selected_season:
-        addSelectedSeason(oc, document, selected_season, selected_episode, **params)
+        addSelectedSeason(oc, movie_document, selected_season, selected_episode, **params)
 
-    serial_info = service.get_serial_info(document)
+    serial_info = service.get_serial_info(movie_document)
 
     for season in sorted(serial_info['seasons'].keys()):
         if not selected_season or selected_season and selected_season != int(season):
@@ -301,6 +301,25 @@ def addSelectedSeason(oc, document, selected_season, selected_episode, **params)
 
 @route(PREFIX + '/season', container=bool)
 def HandleSeason(operation=None, container=False, **params):
+    movie_documents = service.get_movie_documents(params['id'], params['season'], 1)
+
+    if len(movie_documents) == 1:
+        return HandleSeasonVersion(version=1, operation=operation, container=container, **params)
+    else:
+        oc = ObjectContainer(title2=unicode(params['name']))
+
+        for index in range(0, len(movie_documents)):
+            version = index + 1
+
+            oc.add(DirectoryObject(
+                key=Callback(HandleSeasonVersion, version=version, operation=operation, container=container, **params),
+                title=unicode(movie_documents[index]['release']),
+            ))
+
+        return oc
+
+@route(PREFIX + '/season_version', version=int, container=bool)
+def HandleSeasonVersion(version, operation=None, container=False, **params):
     if 'thumb' in params:
         thumb = params['thumb']
     else:
@@ -312,8 +331,9 @@ def HandleSeason(operation=None, container=False, **params):
 
     service.queue.handle_bookmark_operation(operation, media_info)
 
-    document = service.get_movie_documents(params['id'], params['season'], 1)[0]
-    serial_info = service.get_serial_info(document)
+    movie_documents = service.get_movie_documents(params['id'], params['season'], 1)
+    movie_document = movie_documents[version-1]['movie_document']
+    serial_info = service.get_serial_info(movie_document)
 
     for index, episode in enumerate(sorted(serial_info['episodes'].keys())):
         episode_name = serial_info['episodes'][episode]

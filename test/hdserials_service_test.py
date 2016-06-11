@@ -193,6 +193,13 @@ class HDSerialsServiceTest(unittest.TestCase):
 
         print(json.dumps(result, indent=4))
 
+    def test_get_movie_documents(self):
+        path = 'http://www.hdserials.tv/Serialy/Bulvarnye-uzhasy-/-Penny-Dreadful/Bulvarnye-uzhasy-/-Strashnye-skazki-/-Penny-Dreadful.html'
+
+        result = self.service.get_movie_documents(path)
+
+        print(result)
+
     def test_convert_duration(self):
         text = ' ~  22 мин'
 

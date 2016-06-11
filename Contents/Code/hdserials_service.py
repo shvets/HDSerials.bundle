@@ -269,7 +269,7 @@ class HDSerialsService(MwService):
         if url.find(self.URL) < 0:
             url = self.URL + url
 
-        document = self.get_movie_documents(url, season=season, episode=episode)[0]
+        document = self.get_movie_documents(url, season=season, episode=episode)[0]['movie_document']
         content = tostring(document.xpath('body')[0])
 
         data = self.get_session_data(content)
@@ -283,17 +283,23 @@ class HDSerialsService(MwService):
         return sorted(self.get_urls(headers, data), key=itemgetter('bandwidth'), reverse=True)
 
     def get_movie_documents(self, url, season=None, episode=None):
-        gateway_urls = self.get_gateway_urls(self.fetch_document(url))
-
         movie_documents = []
 
-        for gateway_url in gateway_urls:
+        document = self.fetch_document(url)
+
+        release_names = self.get_release_names(document)
+        gateway_urls = self.get_gateway_urls(document)
+
+        for index, gateway_url in enumerate(gateway_urls):
             if season:
                 movie_url = '%s?season=%d&episode=%d' % (gateway_url, int(season), int(episode))
             else:
                 movie_url = gateway_url
 
-            movie_documents.append(self.fetch_document(movie_url, self.get_headers(url)))
+            movie_document = self.fetch_document(movie_url, self.get_headers(url))
+            release = release_names[index]
+
+            movie_documents.append({'movie_document': movie_document, 'release': release})
 
         return movie_documents
 
@@ -359,16 +365,34 @@ class HDSerialsService(MwService):
         return result
 
     def get_gateway_urls(self, document):
-        frame_block = document.xpath('//div[@id="k2Container"]')[0]
-
-        urls = frame_block.xpath('//div[@class="itemFullText"]//iframe[@src]')
-
         gateway_urls = []
 
-        for url in urls:
-            gateway_urls.append(url.get('src'))
+        frame_block = document.xpath('//div[@id="k2Container"]')[0]
+
+        urls_node = frame_block.xpath('//div[@class="itemFullText"]//iframe[@src]')
+
+        for url_node in urls_node:
+            url = url_node.get('src')
+
+            gateway_urls.append(url)
 
         return gateway_urls
+
+    def get_release_names(self, document):
+        release_names = []
+
+        block = document.xpath('//div[@id="k2Container"]')[0]
+
+        p_nodes = block.xpath('//div[@class="itemFullText"]/p')
+
+
+        for p_node in p_nodes:
+            text = p_node.text
+
+            if text and len(text.strip()) > 0:
+                release_names.append(text)
+
+        return release_names
 
     def get_cookie_info(self, url):
         response = self.http_request(url)
@@ -393,7 +417,7 @@ class HDSerialsService(MwService):
         return new_path
 
     def is_serial(self, url):
-        document = self.get_movie_documents(url)[0]
+        document = self.get_movie_documents(url)[0]['movie_document']
 
         content = tostring(document.xpath('body')[0])
 
