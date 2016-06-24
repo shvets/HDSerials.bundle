@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import copy
 from media_info import MediaInfo
 import plex_util
 import pagination
@@ -197,14 +198,29 @@ def HandleSerie(operation=None, selected_season=None, selected_episode=None, **p
     else:
         oc = ObjectContainer(title2=unicode(params['title']))
 
-        for index in range(0, len(movie_documents)):
-            version = index + 1
+        if 'version' in params:
+            version = int(params['version'])
+
+            new_params = copy.copy(params)
+            new_params['version'] = version
 
             oc.add(DirectoryObject(
-                key=Callback(HandleSerieVersion, version=version, operation=operation, selected_season=selected_season,
-                                  selected_episode=selected_episode, **params),
-                title=unicode(movie_documents[index]['release']),
+                key=Callback(HandleSerieVersion, operation=operation, selected_season=selected_season,
+                             selected_episode=selected_episode, **new_params),
+                title=unicode(movie_documents[version-1]['release']),
             ))
+        else:
+            for index in range(0, len(movie_documents)):
+                version = index + 1
+
+                new_params = copy.copy(params)
+                new_params['version'] = version
+
+                oc.add(DirectoryObject(
+                    key=Callback(HandleSerieVersion, operation=operation, selected_season=selected_season,
+                                      selected_episode=selected_episode, **new_params),
+                    title=unicode(movie_documents[index]['release']),
+                ))
 
         return oc
 
@@ -213,6 +229,7 @@ def HandleSerieVersion(version, operation=None, selected_season=None, selected_e
     oc = ObjectContainer(title2=unicode(params['title']))
 
     media_info = MediaInfo(**params)
+    media_info['version'] = version
 
     service.queue.handle_bookmark_operation(operation, media_info)
 
@@ -250,7 +267,7 @@ def HandleSerieVersion(version, operation=None, selected_season=None, selected_e
                 # summary=data['summary']
             ))
 
-    service.queue.append_bookmark_controls(oc, HandleSerie, media_info)
+    service.queue.append_bookmark_controls(oc, HandleSerieVersion, media_info)
 
     return oc
 
@@ -352,7 +369,7 @@ def HandleSeasonVersion(version, operation=None, container=False, **params):
 
         oc.add(DirectoryObject(key=key, title=unicode(episode_name)))
 
-    service.queue.append_bookmark_controls(oc, HandleSeason, media_info)
+    service.queue.append_bookmark_controls(oc, HandleSeasonVersion, media_info)
 
     return oc
 
@@ -452,7 +469,7 @@ def HandleSearch(query=None, page=1):
             'id': movie['path'],
             'title': name,
             'name': name,
-            'thumb': None
+            'thumb': 'thumb'
         }
         oc.add(DirectoryObject(
             key=Callback(HandleMovieOrSerie, **new_params),
