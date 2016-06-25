@@ -204,11 +204,8 @@ def HandleSerie(operation=None, selected_season=None, selected_episode=None, **p
             new_params = copy.copy(params)
             new_params['version'] = version
 
-            oc.add(DirectoryObject(
-                key=Callback(HandleSerieVersion, operation=operation, selected_season=selected_season,
-                             selected_episode=selected_episode, **new_params),
-                title=unicode(movie_documents[version-1]['release']),
-            ))
+            return HandleSerieVersion(operation=operation, selected_season=selected_season,
+                                      selected_episode=selected_episode, **new_params)
         else:
             for index in range(0, len(movie_documents)):
                 version = index + 1
@@ -254,7 +251,8 @@ def HandleSerieVersion(version, operation=None, selected_season=None, selected_e
                 'serieName': params['name'],
                 'name': season_name,
                 'thumb': params['thumb'],
-                'season': season
+                'season': season,
+                'version': version
             }
 
             oc.add(SeasonObject(
@@ -322,6 +320,11 @@ def HandleSeason(operation=None, container=False, **params):
 
     if len(movie_documents) == 1:
         return HandleSeasonVersion(version=1, operation=operation, container=container, **params)
+    elif 'version' in params:
+        new_params = copy.copy(params)
+        del new_params['version']
+
+        return HandleSeasonVersion(version=params['version'], operation=operation, container=container, **new_params)
     else:
         oc = ObjectContainer(title2=unicode(params['name']))
 
@@ -335,8 +338,10 @@ def HandleSeason(operation=None, container=False, **params):
 
         return oc
 
-@route(PREFIX + '/season_version', version=int, container=bool)
+@route(PREFIX + '/season_version', container=bool)
 def HandleSeasonVersion(version, operation=None, container=False, **params):
+    version = int(version)
+
     if 'thumb' in params:
         thumb = params['thumb']
     else:

@@ -297,7 +297,11 @@ class HDSerialsService(MwService):
                 movie_url = gateway_url
 
             movie_document = self.fetch_document(movie_url, self.get_headers(url))
-            release = release_names[index]
+
+            if len(release_names) > 0:
+                release = release_names[index]
+            else:
+                release = 'unknown'
 
             movie_documents.append({'movie_document': movie_document, 'release': release})
 
