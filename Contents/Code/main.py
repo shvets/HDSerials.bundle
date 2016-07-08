@@ -44,7 +44,7 @@ def HandlePopular(page=1):
 
     response = service.get_popular(page=page)
 
-    for index, item in enumerate(response['movies']):
+    for index, item in enumerate(response['items']):
         name = item['title']
         path = item['path']
         thumb = item['thumb']
@@ -138,8 +138,8 @@ def HandleCategory(category_path, title):
 def HandleCategoryItems(category_path, title, page=1):
     response = service.get_category_items(category_path, page)
 
-    if len(response['movies']) == 1:
-        item = response['movies'][0]
+    if len(response['items']) == 1:
+        item = response['items'][0]
 
         name = item['title']
         path = item['path']
@@ -155,8 +155,8 @@ def HandleCategoryItems(category_path, title, page=1):
     else:
         oc = ObjectContainer(title2=unicode(title))
 
-        if response['movies']:
-            for item in response['movies']:
+        if response['items']:
+            for item in response['items']:
                 name = item['title']
                 path = item['path']
                 thumb = service.get_thumb(item['thumb'])
@@ -466,7 +466,7 @@ def HandleSearch(query=None, page=1):
 
     response = service.search(query=query)
 
-    for movie in response['movies']:
+    for movie in response['items']:
         name = movie['name']
         thumb = movie['thumb']
 

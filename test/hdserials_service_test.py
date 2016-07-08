@@ -28,7 +28,7 @@ class HDSerialsServiceTest(unittest.TestCase):
     def test_get_popular(self):
         response = self.service.get_popular()
 
-        for item in response['movies']:
+        for item in response['items']:
             self.assertTrue(len(item['path']) > 0)
             self.assertTrue(len(item['title']) > 0)
             self.assertTrue(len(item['thumb']) > 0)
@@ -49,7 +49,7 @@ class HDSerialsServiceTest(unittest.TestCase):
     def test_get_category_items(self):
         items = self.service.get_category_items('/Filmy.html')
 
-        for item in items:
+        for item in items['items']:
             self.assertTrue(len(item['path']) > 0)
             self.assertTrue(len(item['title']) > 0)
             self.assertTrue(len(item['thumb']) > 0)
@@ -201,7 +201,7 @@ class HDSerialsServiceTest(unittest.TestCase):
         print(result)
 
     def test_convert_duration(self):
-        text = ' ~  22 мин'
+        text = u' ~  22 мин'
 
         result = self.service.convert_duration(text)
 

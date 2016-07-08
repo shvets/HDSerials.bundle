@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
 
 import re
-import json
+import urlparse
 from lxml.etree import tostring
 from operator import itemgetter
 
-from mw_service import MwService
+import base64
+import json
 
-class HDSerialsService(MwService):
+from http_service import HttpService
+
+class HDSerialsService(HttpService):
     URL = 'http://www.hdserials.tv'
+    SESSION_URL = 'http://pandastream.cc/sessions/new'
     KEY_CACHE = 'parse_cache'
 
     cache = {}
@@ -88,7 +92,7 @@ class HDSerialsService(MwService):
 
         pagination = self.extract_pagination_data_from_array(items, page, per_page)
 
-        return {"movies": list, "pagination": pagination["pagination"]}
+        return {"items": list, "pagination": pagination["pagination"]}
 
     def get_subcategories(self, path, page=1, per_page=20):
         page = int(page)
@@ -129,7 +133,7 @@ class HDSerialsService(MwService):
 
         pagination = self.extract_pagination_data(page_path)
 
-        return {"movies": list, "pagination": pagination["pagination"]}
+        return {"items": list, "pagination": pagination["pagination"]}
 
     def extract_pagination_data(self, path):
         document = self.fetch_document(self.URL + path)
@@ -274,10 +278,11 @@ class HDSerialsService(MwService):
 
         data = self.get_session_data(content)
 
+        content_data = self.get_content_data(content)
+
         headers = {
             'X-Requested-With': 'XMLHttpRequest',
-            'Referer': url,
-            'Content-Data': self.get_content_data(content)
+            'Encoding-Pool': content_data
         }
 
         return sorted(self.get_urls(headers, data), key=itemgetter('bandwidth'), reverse=True)
@@ -342,7 +347,7 @@ class HDSerialsService(MwService):
 
         content = self.fetch_content(url)
 
-        result = {'movies': []}
+        result = {'items': []}
 
         data = json.loads(content)
 
@@ -364,7 +369,7 @@ class HDSerialsService(MwService):
                     "path": path
                  }
 
-                result['movies'].append(movie)
+                result['items'].append(movie)
 
         return result
 
@@ -513,3 +518,63 @@ class HDSerialsService(MwService):
             'User-Agent': 'Plex-User-Agent',
             "Referer": referer
         }
+
+    def get_session_data(self, content):
+        path = urlparse.urlparse(self.SESSION_URL).path
+        session_data = re.compile(
+            ('\$\.post\(\'' + path + '\', {((?:.|\n)+)}\)\.success')
+        ).search(content, re.MULTILINE)
+
+
+        if session_data:
+            session_data = session_data.group(1).replace('condition_detected ? 1 : ', '')
+
+            new_session_data = self.replace_keys('{%s}' % session_data,
+                                                 ['partner', 'd_id', 'video_token', 'content_type', 'access_key', 'cd'])
+
+            return json.loads(new_session_data)
+
+    def get_content_data(self, content):
+        data = re.compile(
+            ('setRequestHeader\|\|([^|]+)')
+        ).search(content, re.MULTILINE)
+
+        if data:
+            return base64.b64encode(data.group(1))
+
+    def get_urls(self, headers, data):
+        urls = []
+
+        try:
+            response = self.http_request(method='POST', url=self.SESSION_URL, headers=headers, data=data)
+
+            data = json.loads(response.read())
+
+            manifest_url = data['manifest_m3u8']
+
+            response2 = self.http_request(manifest_url)
+
+            data2 = response2.read()
+
+            lines = data2.splitlines()
+
+            for index, line in enumerate(lines):
+                if line.startswith('#EXTM3U'):
+                    continue
+                elif len(line.strip()) > 0 and not line.startswith('#EXT-X-STREAM-INF'):
+                    data = re.search("#EXT-X-STREAM-INF:RESOLUTION=(\d+)x(\d+),BANDWIDTH=(\d+)", lines[index - 1])
+
+                    urls.append(
+                        {"url": line, "width": int(data.group(1)), "height": int(data.group(2)), "bandwidth": int(data.group(3))})
+        except:
+            pass
+
+        return urls
+
+    def replace_keys(self, s, keys):
+        s = s.replace('\'', '"')
+
+        for key in keys:
+            s = s.replace(key + ':', '"' + key + '":')
+
+        return s
