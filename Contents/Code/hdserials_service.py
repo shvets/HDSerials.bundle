@@ -12,10 +12,14 @@ from http_service import HttpService
 
 class HDSerialsService(HttpService):
     URL = 'http://www.hdserials.tv'
-    SESSION_URL = 'http://pandastream.cc/sessions/new'
+    SESSION_URL1 = 'http://pandastream.cc/sessions/create_new'
+    SESSION_URL2 = 'http://pandastream.cc/sessions/new'
     KEY_CACHE = 'parse_cache'
 
     cache = {}
+
+    def session_url(self):
+        return self.SESSION_URL1
 
     def load_cache(self, path):
         result = None
@@ -473,14 +477,6 @@ class HDSerialsService(HttpService):
             u'\s(?P<season>\d+)\sсезон'
         ).match(title).groupdict()
 
-    def replace_keys(self, s, keys):
-        s = s.replace('\'', '"')
-
-        for key in keys:
-            s = s.replace(key + ':', '"' + key + '":')
-
-        return s
-
     def convert_duration(self, s):
         s = s.replace('~', '').strip()
 
@@ -520,7 +516,7 @@ class HDSerialsService(HttpService):
         }
 
     def get_session_data(self, content):
-        path = urlparse.urlparse(self.SESSION_URL).path
+        path = urlparse.urlparse(self.session_url()).path
         session_data = re.compile(
             ('\$\.post\(\'' + path + '\', {((?:.|\n)+)}\)\.success')
         ).search(content, re.MULTILINE)
@@ -546,7 +542,7 @@ class HDSerialsService(HttpService):
         urls = []
 
         try:
-            response = self.http_request(method='POST', url=self.SESSION_URL, headers=headers, data=data)
+            response = self.http_request(method='POST', url=self.session_url(), headers=headers, data=data)
 
             data = json.loads(response.read())
 
