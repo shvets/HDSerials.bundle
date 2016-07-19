@@ -319,7 +319,9 @@ def HandleSeason(operation=None, container=False, **params):
     movie_documents = service.get_movie_documents(params['id'], params['season'], 1)
 
     if len(movie_documents) == 1:
-        return HandleSeasonVersion(version=1, operation=operation, container=container, **params)
+        new_params = copy.copy(params)
+        del new_params['version']
+        return HandleSeasonVersion(version=1, operation=operation, container=container, **new_params)
     elif 'version' in params:
         new_params = copy.copy(params)
         del new_params['version']
