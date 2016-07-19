@@ -540,6 +540,7 @@ def MetadataObjectForURL(media_info, url_items, player):
     metadata_object.key = Callback(HandleMovie, container=True, **media_info)
 
     #metadata_object.title = title
+    metadata_object.title = unicode(media_info['name'])
     metadata_object.rating_key = media_info['rating_key']
     metadata_object.rating = media_info['rating']
     metadata_object.thumb = media_info['thumb']
